@@ -5,8 +5,7 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -37,8 +36,10 @@ model User {
 
   roleId        Int
   role          Role      @relation(fields: [roleId], references: [id])
-  projects      Project[]
-  assignedTasks Task[]
+  ownedProjects Project[]
+  assignedTasks Task[]    @relation("AssignedTasks")
+  createdTasks  Task[]    @relation("CreatedTasks")
+  projectMembers ProjectMember[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -54,9 +55,23 @@ model Project {
   owner   User @relation(fields: [ownerId], references: [id])
 
   tasks Task[]
+  members ProjectMember[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ProjectMember {
+  id        Int     @id @default(autoincrement())
+  projectId Int
+  userId    Int
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, userId])
 }
 
 model Task {
@@ -68,10 +83,13 @@ model Task {
   dueDate     DateTime?
 
   projectId Int
-  project   Project @relation(fields: [projectId], references: [id])
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   assigneeId Int?
-  assignee   User? @relation(fields: [assigneeId], references: [id])
+  assignee   User? @relation("AssignedTasks", fields: [assigneeId], references: [id])
+
+  createdById Int
+  createdBy   User @relation("CreatedTasks", fields: [createdById], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
