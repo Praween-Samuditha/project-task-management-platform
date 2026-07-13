@@ -13,201 +13,125 @@ const textMuted = "#8590A2";
 const activeBg = "#E8F0FE";
 const hoverBg = "#F1F2F4";
 
-const SPACES = [
+const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: "⊞" },
   { href: "/projects", label: "Projects", icon: "📁" },
+  { href: "/tasks", label: "Tasks", icon: "🗂" },
 ];
 
-const NAV_TOP = [
-  {
-    href: "/dashboard", label: "For you",
-    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-  },
-  {
-    href: "#", label: "Recent",
-    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-    arrow: true
-  },
-  {
-    href: "#", label: "Starred",
-    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
-    arrow: true
-  },
-  {
-    href: "#", label: "Apps",
-    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-  },
-  {
-    href: "#", label: "Plans",
-    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-  },
+const BOTTOM_LINKS = [
+  { label: "Filters", icon: "⚡" },
+  { label: "Dashboards", icon: "⊞" },
+  { label: "Teams", icon: "👥" },
+  { label: "Customize sidebar", icon: "⚙" },
 ];
 
 interface SidebarProps { collapsed: boolean; onToggle: () => void; }
+
+const NAV_ITEMS_FULL = [
+  { href: "/dashboard", label: "Dashboard", icon: "⊞" },
+  { href: "/projects", label: "Projects", icon: "📁" },
+  { href: "/tasks", label: "Board", icon: "🗂" },
+];
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { logout, user } = useAuth();
   const initials = user ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() : "?";
 
+  const navItems = [...NAV_ITEMS_FULL,
+    ...(user?.role?.name === "ADMIN" ? [{ href: "/users", label: "Members", icon: "👥" }] : [])
+  ];
+
   return (
     <aside style={{
-      width: collapsed ? 0 : 240,
-      minWidth: collapsed ? 0 : 240,
+      width: collapsed ? 72 : 240,
+      minWidth: collapsed ? 72 : 240,
       height: "100vh",
       background: sidebarBg,
       borderRight: `1px solid ${sidebarBorder}`,
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",
-      transition: "width 0.2s, min-width 0.2s",
+      transition: "width 0.2s ease",
       fontFamily: "'-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       flexShrink: 0,
       position: "relative"
     }}>
-      {/* Search */}
-      <div style={{ padding: "12px 8px 8px" }}>
-        <div style={{ position: "relative" }}>
-          <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: textMuted, fontSize: 13 }}>🔍</span>
-          <input placeholder="Search" style={{
-            width: "100%", height: 36, border: `1px solid ${sidebarBorder}`,
-            borderRadius: 4, paddingLeft: 30, paddingRight: 10,
-            fontSize: 14, background: "#fff", color: textPrimary, outline: "none",
-            fontFamily: "inherit", boxSizing: "border-box"
-          }}
-          onFocus={e => (e.target.style.borderColor = accentBlue)}
-          onBlur={e => (e.target.style.borderColor = sidebarBorder)} />
-        </div>
-      </div>
-
-      {/* Top nav items */}
-      <nav style={{ flex: "none", padding: "4px 0" }}>
-        {NAV_TOP.map(({ href, label, icon, arrow }) => {
-          const active = pathname === href || (href !== "#" && pathname.startsWith(href));
-          return (
-            <Link key={label} href={href} style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "6px 12px", borderRadius: 4, margin: "1px 8px",
-              background: active ? activeBg : "transparent",
-              color: active ? accentBlue : textPrimary,
-              textDecoration: "none", fontSize: 14, fontWeight: 500,
-              transition: "background 0.1s"
-            }}
-            onMouseEnter={e => { if (!active) e.currentTarget.style.background = hoverBg; }}
-            onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, color: active ? accentBlue : textSecondary }}>
-                {icon}
-                <span style={{ color: active ? accentBlue : textPrimary }}>{label}</span>
-              </div>
-              {arrow && <span style={{ fontSize: 10, color: textMuted }}>›</span>}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Spaces section */}
-      <div style={{ borderTop: `1px solid ${sidebarBorder}`, paddingTop: 8, margin: "0 0 4px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 12px 6px" }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: textMuted, letterSpacing: 1, textTransform: "uppercase" }}>Spaces</span>
-          <div style={{ display: "flex", gap: 4 }}>
-            <button style={{ background: "none", border: "none", cursor: "pointer", color: textMuted, fontSize: 16, padding: 2 }}>+</button>
-            <button style={{ background: "none", border: "none", cursor: "pointer", color: textMuted, fontSize: 14, padding: 2 }}>···</button>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "space-between", padding: "16px 14px", borderBottom: `1px solid ${sidebarBorder}` }}>
+        <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: collapsed ? 0 : 10, textDecoration: "none", color: textPrimary }}>
+          <div style={{ width: 32, height: 32, background: accentBlue, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 14 }}>
+            FP
           </div>
-        </div>
-
-        {/* Recent label */}
-        <div style={{ padding: "4px 12px 4px", fontSize: 11, fontWeight: 700, color: textMuted, letterSpacing: 0.5, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          Recent
-        </div>
-
-        {/* Project / Space link */}
-        {SPACES.map(({ href, label, icon }) => {
-          const active = pathname.startsWith(href);
-          return (
-            <Link key={href} href={href} style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "6px 12px", margin: "1px 8px", borderRadius: 4,
-              background: active ? activeBg : "transparent",
-              color: textPrimary, textDecoration: "none", fontSize: 14, fontWeight: 500,
-              transition: "background 0.1s"
-            }}
-            onMouseEnter={e => { if (!active) e.currentTarget.style.background = hoverBg; }}
-            onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
-              <div style={{ width: 20, height: 20, background: "#FF5630", borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>
-                <span style={{ color: "#fff", fontWeight: 800, fontSize: 10 }}>FP</span>
-              </div>
-              <span style={{ color: active ? accentBlue : textPrimary }}>{label === "/dashboard" ? "FlowPilot" : label}</span>
-            </Link>
-          );
-        })}
-
-        {/* Workspace navigation links */}
-        {[
-          { href: "/tasks", label: "Tasks (Board)", indent: true },
-          { href: "/users", label: "Members", indent: true },
-        ].map(({ href, label, indent }) => {
-          const active = pathname.startsWith(href);
-          return (
-            <Link key={href} href={href} style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "6px 12px", paddingLeft: indent ? 24 : 12,
-              margin: "1px 8px", borderRadius: 4,
-              background: active ? activeBg : "transparent",
-              color: active ? accentBlue : textPrimary,
-              textDecoration: "none", fontSize: 14, fontWeight: active ? 600 : 400,
-              transition: "background 0.1s"
-            }}
-            onMouseEnter={e => { if (!active) e.currentTarget.style.background = hoverBg; }}
-            onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
-              {label}
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Bottom links */}
-      <div style={{ borderTop: `1px solid ${sidebarBorder}`, marginTop: "auto", padding: "8px 0" }}>
-        {[
-          { label: "Filters", icon: "⚡" },
-          { label: "Dashboards", icon: "⊞" },
-          { label: "Teams", icon: "👥" },
-          { label: "Customize sidebar", icon: "⚙" },
-        ].map(item => (
-          <div key={item.label} style={{
-            display: "flex", alignItems: "center", gap: 10,
-            padding: "6px 12px", margin: "1px 8px", borderRadius: 4,
-            color: textSecondary, fontSize: 14, cursor: "pointer",
-            transition: "background 0.1s"
-          }}
-          onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
-          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-            <span style={{ fontSize: 14 }}>{item.icon}</span>
-            {item.label}
-          </div>
-        ))}
-
-        {/* User + logout */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", margin: "4px 8px 0", borderTop: `1px solid ${sidebarBorder}` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg,#0052CC,#6554C0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff" }}>
-              {initials}
+          {!collapsed && (
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>FlowPilot</div>
+              <div style={{ fontSize: 12, color: textMuted, marginTop: 2 }}>Project workspace</div>
             </div>
-            {user && <span style={{ fontSize: 12, color: textSecondary, fontWeight: 500 }}>{user.firstName}</span>}
-          </div>
-          <button onClick={logout} style={{ background: "none", border: "none", cursor: "pointer", color: textMuted, fontSize: 18, padding: 2 }} title="Logout">→</button>
-        </div>
+          )}
+        </Link>
+        <button onClick={onToggle} style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          width: 32, height: 32, borderRadius: 10, border: "1px solid #D9E1EC",
+          background: "#fff", color: textSecondary, cursor: "pointer"
+        }} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+          {collapsed ? "›" : "‹"}
+        </button>
       </div>
 
-      {/* Toggle button */}
-      <button onClick={onToggle} style={{
-        position: "absolute", right: -12, top: 72,
-        width: 24, height: 24, borderRadius: "50%",
-        background: "#fff", border: `1px solid ${sidebarBorder}`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        cursor: "pointer", color: textSecondary, zIndex: 10, fontSize: 12
-      }}>
-        {collapsed ? "›" : "‹"}
-      </button>
+      <div style={{ flex: 1, padding: collapsed ? "12px 0" : "16px" }}>
+        {(collapsed ? navItems : navItems).map((item) => {
+          const active = pathname.startsWith(item.href);
+          return (
+            <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined} style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: collapsed ? "12px 0" : "10px 14px",
+              margin: collapsed ? "4px 0" : "0 0 8px",
+              justifyContent: collapsed ? "center" : "flex-start",
+              borderRadius: 10,
+              background: active ? activeBg : "transparent",
+              color: active ? accentBlue : textPrimary,
+              textDecoration: "none",
+              fontSize: 14,
+              fontWeight: active ? 700 : 500,
+              transition: "background 0.15s"
+            }}
+            onMouseEnter={e => { if (!active) e.currentTarget.style.background = hoverBg; }}
+            onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
+              <span style={{ display: "inline-flex", width: 24, height: 24, alignItems: "center", justifyContent: "center", fontSize: 16 }}>{item.icon}</span>
+              {!collapsed && <span>{item.label}</span>}
+            </Link>
+          );
+        })}
+
+        {!collapsed && (
+          <div style={{ marginTop: 24, padding: "12px 14px", background: "#F5F8FB", borderRadius: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: textMuted, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Spaces</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "#fff", borderRadius: 10, border: "1px solid #E4E9F2" }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: "#E6F0FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>My</div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: textPrimary }}>My Space</div>
+                <div style={{ fontSize: 11, color: textMuted }}>Summary</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ borderTop: `1px solid ${sidebarBorder}`, padding: collapsed ? "12px 0" : "14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: collapsed ? 0 : 10, justifyContent: collapsed ? "center" : "flex-start" }}>
+          <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,#0052CC,#6554C0)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 700 }}>{initials}</div>
+          {!collapsed && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: textPrimary }}>{user?.firstName ?? "Guest"}</div>
+              <div style={{ fontSize: 11, color: textMuted }}>{user?.role?.name ?? "Member"}</div>
+            </div>
+          )}
+        </div>
+        {!collapsed && (
+          <button onClick={logout} style={{ marginTop: 12, width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #D9E1EC", background: "#fff", color: textSecondary, fontSize: 13, cursor: "pointer" }}>Logout</button>
+        )}
+      </div>
     </aside>
   );
 }

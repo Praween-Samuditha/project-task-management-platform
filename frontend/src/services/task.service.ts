@@ -6,7 +6,7 @@ export interface TasksResponse {
   pagination: { total: number; page: number; limit: number; totalPages: number };
 }
 
-export const getTasks = (params?: { page?: number; limit?: number; status?: string; priority?: string; projectId?: number }) =>
+export const getTasks = (params?: { page?: number; limit?: number; status?: string; priority?: string; projectId?: number; assigneeId?: number }) =>
   api.get<TasksResponse>("/tasks", { params }).then((r) => r.data);
 
 export const getTaskById = (id: number) =>

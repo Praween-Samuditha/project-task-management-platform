@@ -42,12 +42,12 @@ export default function Home() {
           }}
           onMouseEnter={e => (e.currentTarget.style.background = "#0065FF")}
           onMouseLeave={e => (e.currentTarget.style.background = atlassianBlue)}>
-            Get it free
+            Sign up
           </Link>
           <Link href="/login" style={{ color: "#253858", fontWeight: 600, fontSize: 15, textDecoration: "none" }}
           onMouseEnter={e => (e.currentTarget.style.color = atlassianBlue)}
           onMouseLeave={e => (e.currentTarget.style.color = "#253858")}>
-            Sign In
+            Log in
           </Link>
         </div>
       </nav>
@@ -68,7 +68,7 @@ export default function Home() {
           }}
           onMouseEnter={e => (e.currentTarget.style.background = "#FFC400")}
           onMouseLeave={e => (e.currentTarget.style.background = atlassianYellow)}>
-            Get it free
+            Get started
           </Link>
         </div>
 
@@ -195,7 +195,7 @@ export default function Home() {
             display: "inline-block", background: atlassianBlue, color: "#fff",
             fontWeight: 600, fontSize: 16, padding: "12px 24px", borderRadius: 3, textDecoration: "none"
           }}>
-            Get it free
+            Sign up
           </Link>
       </section>
     </div>

@@ -24,13 +24,17 @@ export const registerUser = async (
             lastName,
             email,
             password: hashedPassword,
-            roleId: 1
+            roleId: 3  // Default to MEMBER role
+        },
+        include: {
+            role: true,
         },
     });
 
     const token = generateToken({
         id: user.id,
         email: user.email,
+        role: user.role.name,
     });
 
     const { password: _, ...userWithoutPassword } = user;

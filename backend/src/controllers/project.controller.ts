@@ -20,8 +20,9 @@ export const getProjects = async (req: AuthRequest, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
-    
-    const result = await projectService.getProjects(page, limit);
+    const memberId = req.query.memberId ? parseInt(req.query.memberId as string) : undefined;
+
+    const result = await projectService.getProjects(page, limit, memberId);
     return res.json(result);
   } catch (error: any) {
     return res.status(500).json({ message: error.message });

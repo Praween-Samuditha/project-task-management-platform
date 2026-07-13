@@ -9,20 +9,49 @@ export const createProject = async (data: any, ownerId: number) => {
   });
 };
 
-export const getProjects = async (page: number, limit: number) => {
+export const getProjects = async (page: number, limit: number, memberId?: number) => {
   const skip = (page - 1) * limit;
+  const where = memberId
+    ? {
+        OR: [
+          { ownerId: memberId },
+          { members: { some: { userId: memberId } } },
+        ],
+      }
+    : {};
+
   const [projects, total] = await Promise.all([
     prisma.project.findMany({
+      where,
       skip,
       take: limit,
       include: {
         owner: {
           select: { id: true, firstName: true, lastName: true },
         },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: { select: { name: true } },
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            tasks: true,
+            members: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.project.count(),
+    prisma.project.count({ where }),
   ]);
 
   return {

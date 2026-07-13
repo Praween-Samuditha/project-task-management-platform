@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -17,9 +19,25 @@ const PAGE_TITLES: Record<string, string> = {
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
   const title = Object.entries(PAGE_TITLES).find(([key]) => pathname.startsWith(key))?.[1] ?? "FlowPilot";
   const initials = user ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() : "?";
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+
+    if (profileOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileOpen]);
 
   return (
     <header style={{
@@ -31,14 +49,14 @@ export default function Navbar() {
       zIndex: 50
     }}>
       {/* Left: Logo */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 140 }}>
+      <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 140, textDecoration: "none" }}>
         <div style={{ width: 28, height: 28, background: accentBlue, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
             <path d="M12 2L2 22h20L12 2zm0 4l6 14H6l6-14z" />
           </svg>
         </div>
-        <span style={{ fontSize: 15, fontWeight: 700, color: "#172B4D" }}>Jira</span>
-      </div>
+        <span style={{ fontSize: 15, fontWeight: 700, color: "#172B4D" }}>FlowPilot</span>
+      </Link>
 
       {/* Center: Search */}
       <div style={{ flex: 1, maxWidth: 500, margin: "0 16px", position: "relative" }}>
@@ -73,11 +91,6 @@ export default function Navbar() {
           <span style={{ fontSize: 16, fontWeight: 400 }}>+</span> Create
         </button>
 
-        {/* Premium trial badge */}
-        <div style={{ fontSize: 11, fontWeight: 600, color: "#FF8B00", background: "#FFF7E6", border: "1px solid #FFE380", borderRadius: 12, padding: "2px 8px", whiteSpace: "nowrap" }}>
-          Premium trial
-        </div>
-
         {/* Bell */}
         <button style={{ width: 34, height: 34, borderRadius: "50%", background: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: textSecondary, transition: "background 0.1s" }}
           onMouseEnter={e => (e.currentTarget.style.background = hoverBg)} onMouseLeave={e => (e.currentTarget.style.background = "none")}>
@@ -91,8 +104,35 @@ export default function Navbar() {
         </button>
 
         {/* Avatar */}
-        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#0052CC,#6554C0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer", flexShrink: 0 }}>
-          {initials}
+        <div ref={menuRef} style={{ position: "relative" }}>
+          <button type="button" onClick={() => setProfileOpen((open) => !open)} style={{
+            width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#0052CC,#6554C0)",
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700,
+            color: "#fff", cursor: "pointer", flexShrink: 0, border: "none", outline: "none"
+          }}>
+            {initials}
+          </button>
+
+          {profileOpen && (
+            <div style={{
+              position: "absolute", right: 0, top: 44, minWidth: 200, background: "#fff",
+              border: "1px solid #E2E8F0", borderRadius: 14, boxShadow: "0 20px 40px rgba(15,23,42,0.12)", zIndex: 100,
+              overflow: "hidden"
+            }}>
+              <div style={{ padding: 12, borderBottom: "1px solid #F1F5F9", background: "#F8FAFC" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#0F172A" }}>{user?.firstName} {user?.lastName}</div>
+                <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>{user?.email}</div>
+              </div>
+              <button onClick={() => setProfileOpen(false)} style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", color: "#0F172A", fontSize: 13, cursor: "pointer" }}>Profile</button>
+              <button onClick={() => setProfileOpen(false)} style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", color: "#0F172A", fontSize: 13, cursor: "pointer" }}>Account settings</button>
+              <button onClick={() => setProfileOpen(false)} style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", color: "#0F172A", fontSize: 13, cursor: "pointer" }}>Theme</button>
+              <button onClick={() => setProfileOpen(false)} style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", color: "#0F172A", fontSize: 13, cursor: "pointer" }}>Open Quickstart</button>
+              <button onClick={() => setProfileOpen(false)} style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", color: "#0F172A", fontSize: 13, cursor: "pointer" }}>Switch account</button>
+              <div style={{ borderTop: "1px solid #F1F5F9" }}>
+                <button onClick={() => { logout(); setProfileOpen(false); }} style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", color: "#EF4444", fontSize: 13, cursor: "pointer" }}>Log out</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>

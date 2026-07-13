@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import api from "@/services/api";
-import { DashboardStats } from "@/types";
+import { DashboardStats, Task } from "@/types";
+import { getTasks } from "@/services/task.service";
+import { useAuth } from "@/hooks/useAuth";
+import KanbanBoard from "@/components/ui/KanbanBoard";
 
 const accentBlue = "#0052CC";
 const border = "#DCDFE4";
@@ -21,12 +24,26 @@ const STAT_CONFIG = [
 ];
 
 export default function DashboardPage() {
+  const { role } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [taskLoading, setTaskLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"summary" | "board">("summary");
 
   useEffect(() => {
     api.get("/dashboard").then(r => setStats(r.data)).catch(() => {}).finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "board") {
+      setTaskLoading(true);
+      getTasks({ page: 1, limit: 100 })
+        .then((data) => setTasks(data.tasks ?? []))
+        .catch(() => setTasks([]))
+        .finally(() => setTaskLoading(false));
+    }
+  }, [activeTab]);
 
   const completionRate = stats && stats.totalTasks > 0 ? Math.round((stats.completedTasks / stats.totalTasks) * 100) : 0;
   const activityRate = stats && stats.totalProjects > 0 ? Math.round((stats.activeProjects / stats.totalProjects) * 100) : 0;
@@ -49,21 +66,42 @@ export default function DashboardPage() {
 
           {/* Tabs */}
           <div style={{ display: "flex", gap: 0 }}>
-            {["Summary", "Projects", "Board", "Members"].map((tab, i) => (
-              <div key={tab} style={{
-                padding: "8px 16px", fontSize: 14, fontWeight: i === 0 ? 600 : 400,
-                color: i === 0 ? accentBlue : textSecondary, cursor: "pointer",
-                borderBottom: i === 0 ? `2px solid ${accentBlue}` : "2px solid transparent",
-                transition: "color 0.1s"
-              }}>
-                {tab}
-              </div>
-            ))}
+            {["Summary", "Projects", "Board", "Members"].map((tab, i) => {
+              const tabKey = (tab.toLowerCase() === "board" ? "board" : tab === "Summary" ? "summary" : "summary") as "summary" | "board";
+              const isActive = (tab === "Summary" && activeTab === "summary") || (tab === "Board" && activeTab === "board");
+              return (
+                <div key={tab} style={{
+                  padding: "8px 16px", fontSize: 14, fontWeight: isActive ? 600 : 400,
+                  color: isActive ? accentBlue : textSecondary, cursor: "pointer",
+                  borderBottom: isActive ? `2px solid ${accentBlue}` : "2px solid transparent",
+                  transition: "color 0.1s"
+                }}
+                onClick={() => {
+                  if (tab === "Summary") setActiveTab("summary");
+                  else if (tab === "Board") setActiveTab("board");
+                }}>
+                  {tab}
+                </div>
+              );
+            })}
           </div>
         </div>
 
         {/* Content */}
         <div style={{ padding: 24 }}>
+          {activeTab === "board" ? (
+            // Board View - Kanban
+            <KanbanBoard 
+              tasks={tasks}
+              isLoading={taskLoading}
+              onTaskUpdate={(updatedTask) => {
+                // Handle task update if needed
+                setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+              }}
+            />
+          ) : (
+            // Summary View - Stats and Progress
+            <>
           {/* Stat cards */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px,1fr))", gap: 12, marginBottom: 24 }}>
             {loading
@@ -147,6 +185,8 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+          )}
+            </>
           )}
         </div>
       </div>

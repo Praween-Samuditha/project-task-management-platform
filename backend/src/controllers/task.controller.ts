@@ -48,6 +48,28 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
   try {
     const id = parseInt(req.params.id as string);
     const validatedData = updateTaskSchema.parse(req.body);
+    
+    // Get current task to check permissions
+    const currentTask = await taskService.getTaskById(id);
+    if (!currentTask) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    // Allow MEMBER to update only if they're the assignee and only certain fields
+    if (req.user.role === "MEMBER") {
+      if (currentTask.assigneeId !== req.user.id) {
+        return res.status(403).json({ message: "You can only update tasks assigned to you" });
+      }
+      // MEMBER can only update status and priority
+      validatedData.status = validatedData.status || currentTask.status;
+      validatedData.priority = validatedData.priority || currentTask.priority;
+      // Clear fields MEMBER shouldn't be able to change
+      delete (validatedData as any).title;
+      delete (validatedData as any).description;
+      delete (validatedData as any).assigneeId;
+      delete (validatedData as any).dueDate;
+    }
+
     const task = await taskService.updateTask(id, validatedData);
     return res.json(task);
   } catch (error: any) {

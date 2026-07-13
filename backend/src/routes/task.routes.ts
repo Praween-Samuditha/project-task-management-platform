@@ -15,17 +15,19 @@ router.post(
 
 router.get(
   "/",
+  authorizeRoles("ADMIN", "MANAGER", "MEMBER"),
   taskController.getAllTasks
 );
 
 router.get(
   "/:id",
+  authorizeRoles("ADMIN", "MANAGER", "MEMBER"),
   taskController.getTaskById
 );
 
 router.put(
   "/:id",
-  authorizeRoles("ADMIN", "MANAGER"),
+  authorizeRoles("ADMIN", "MANAGER", "MEMBER"),
   taskController.updateTask
 );
 

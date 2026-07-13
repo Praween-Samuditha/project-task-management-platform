@@ -158,7 +158,7 @@ export default function RegisterPage() {
                   onMouseEnter={e => !loading && (e.currentTarget.style.background = "#FFC400")}
                   onMouseLeave={e => !loading && (e.currentTarget.style.background = atlassianYellow)}
                 >
-                  {loading ? "Creating account..." : "Sign Up Free"}
+                  {loading ? "Creating account..." : "Create account"}
                 </button>
               </form>
 

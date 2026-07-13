@@ -9,6 +9,8 @@ import AppLayout from "@/components/layout/AppLayout";
 import { getTasks, createTask, updateTask, deleteTask } from "@/services/task.service";
 import { getProjects } from "@/services/project.service";
 import { Task, Project } from "@/types";
+import { useAuth } from "@/hooks/useAuth";
+import KanbanBoard from "@/components/ui/KanbanBoard";
 
 const schema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
@@ -16,7 +18,9 @@ const schema = z.object({
   status: z.enum(["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE"]).optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
   dueDate: z.string().optional(),
-  projectId: z.string().min(1, "Please select a project"),
+  projectId: z.string().refine((val) => val.length > 0, {
+    message: "Please select a project",
+  }),
 });
 type FormData = z.infer<typeof schema>;
 const STATUS_OPTIONS = ["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE"];
@@ -66,6 +70,8 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
 }
 
 export default function TasksPage() {
+  const { role } = useAuth();
+  const canCreateTask = ["ADMIN", "MANAGER"].includes(role ?? "");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,18 +85,39 @@ export default function TasksPage() {
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({ 
+    resolver: zodResolver(schema),
+    mode: "onBlur",
+    defaultValues: { projectId: "", status: "TODO", priority: "MEDIUM" }
+  });
 
   const fetchTasks = useCallback(() => {
     setLoading(true);
     getTasks({ page, limit: 20, status: filterStatus || undefined, priority: filterPriority || undefined })
-      .then((data) => { setTasks(data.tasks ?? []); setTotalPages(data.pagination?.totalPages ?? 1); })
-      .catch(() => toast.error("Failed to load tasks"))
+      .then((data) => { 
+        console.log("Tasks fetched:", data);
+        setTasks(data.tasks ?? []); 
+        setTotalPages(data.pagination?.totalPages ?? 1); 
+      })
+      .catch((error) => {
+        console.error("Error fetching tasks:", error);
+        toast.error("Failed to load tasks");
+      })
       .finally(() => setLoading(false));
   }, [page, filterStatus, filterPriority]);
 
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
-  useEffect(() => { getProjects(1, 100).then((d) => setProjects(d.projects ?? [])).catch(() => {}); }, []);
+  useEffect(() => { 
+    getProjects(1, 100)
+      .then((d) => {
+        console.log("Projects fetched:", d);
+        setProjects(d.projects ?? []);
+      })
+      .catch((error) => {
+        console.error("Error fetching projects:", error);
+        toast.error("Failed to load projects");
+      });
+  }, []);
 
   const openCreate = () => { setEditTask(null); reset({ title: "", description: "", status: "TODO", priority: "MEDIUM", projectId: "", dueDate: "" }); setModalOpen(true); };
   const openEdit = (t: Task) => {
@@ -118,6 +145,18 @@ export default function TasksPage() {
     finally { setDeleting(false); }
   };
 
+  const handleTaskUpdate = async (updatedTask: Task) => {
+    try {
+      await updateTask(updatedTask.id, {
+        status: updatedTask.status,
+      });
+      toast.success("Task status updated");
+      fetchTasks();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to update task");
+    }
+  };
+
   const selectSty: React.CSSProperties = { height: 34, background: "#1D2125", border: "1px solid #2C333A", borderRadius: 3, color: "#B3BAC5", fontSize: 13, padding: "0 10px", outline: "none", cursor: "pointer", fontFamily: "inherit" };
 
   return (
@@ -128,10 +167,12 @@ export default function TasksPage() {
             <h2 style={{ fontSize: 20, fontWeight: 600, color: "#DFE1E6", margin: "0 0 4px" }}>Tasks</h2>
             <p style={{ fontSize: 13, color: "#8A94A5", margin: 0 }}>{tasks.length} tasks</p>
           </div>
-          <button onClick={openCreate} style={{ display: "flex", alignItems: "center", gap: 6, background: accentBlue, color: "#fff", border: "none", borderRadius: 3, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
-            onMouseEnter={e => (e.currentTarget.style.background = "#0065FF")} onMouseLeave={e => (e.currentTarget.style.background = accentBlue)}>
-            <span style={{ fontSize: 16 }}>+</span> New Task
-          </button>
+          {canCreateTask && (
+            <button onClick={openCreate} style={{ display: "flex", alignItems: "center", gap: 6, background: accentBlue, color: "#fff", border: "none", borderRadius: 3, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+              onMouseEnter={e => (e.currentTarget.style.background = "#0065FF")} onMouseLeave={e => (e.currentTarget.style.background = accentBlue)}>
+              <span style={{ fontSize: 16 }}>+</span> New Task
+            </button>
+          )}
         </div>
 
         <div style={{ ...darkCard, overflow: "hidden" }}>
@@ -147,53 +188,15 @@ export default function TasksPage() {
             </select>
           </div>
 
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={{ background: "#1D2125" }}>
-              <tr>
-                {["Title", "Project", "Status", "Priority", "Due Date", "Assignee", "Actions"].map(h => (
-                  <th key={h} style={thStyle}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>{Array.from({ length: 7 }).map((_, j) => <td key={j} style={tdStyle}><div style={{ height: 12, background: "#2C333A", borderRadius: 4 }} /></td>)}</tr>
-                ))
-              ) : tasks.length === 0 ? (
-                <tr><td colSpan={7} style={{ padding: 60, textAlign: "center", color: "#8A94A5", fontSize: 14 }}>No tasks found. Create your first task!</td></tr>
-              ) : tasks.map((task) => (
-                <tr key={task.id} style={{ transition: "background 0.1s", cursor: "default" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "#1D2125")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                  <td style={{ ...tdStyle, fontWeight: 600, color: "#DFE1E6", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{task.title}</td>
-                  <td style={tdStyle}>{task.project?.name ?? "—"}</td>
-                  <td style={tdStyle}><StatusBadge status={task.status} /></td>
-                  <td style={tdStyle}><PriorityBadge priority={task.priority} /></td>
-                  <td style={tdStyle}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—"}</td>
-                  <td style={tdStyle}>{task.assignee ? `${task.assignee.firstName} ${task.assignee.lastName}` : "—"}</td>
-                  <td style={tdStyle}>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <button onClick={() => openEdit(task)} style={{ background: "#2C333A", border: "none", color: "#8A94A5", cursor: "pointer", borderRadius: 3, padding: "4px 8px", fontSize: 12 }}
-                        onMouseEnter={e => { e.currentTarget.style.background = "#388BFF20"; e.currentTarget.style.color = "#4C9AFF"; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = "#2C333A"; e.currentTarget.style.color = "#8A94A5"; }}>Edit</button>
-                      <button onClick={() => setDeleteTarget(task)} style={{ background: "#2C333A", border: "none", color: "#8A94A5", cursor: "pointer", borderRadius: 3, padding: "4px 8px", fontSize: 12 }}
-                        onMouseEnter={e => { e.currentTarget.style.background = "#FF563020"; e.currentTarget.style.color = "#FF5630"; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = "#2C333A"; e.currentTarget.style.color = "#8A94A5"; }}>Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {totalPages > 1 && (
-            <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "12px 16px", borderTop: "1px solid #2C333A" }}>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button key={p} onClick={() => setPage(p)} style={{ width: 28, height: 28, borderRadius: 3, border: "1px solid", borderColor: p === page ? accentBlue : "#2C333A", background: p === page ? accentBlue : "transparent", color: p === page ? "#fff" : "#8A94A5", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>{p}</button>
-              ))}
-            </div>
-          )}
+          <KanbanBoard 
+            tasks={tasks}
+            isLoading={loading}
+            onTaskUpdate={handleTaskUpdate}
+            onTaskDelete={(id) => {
+              const task = tasks.find(t => t.id === id);
+              if (task) setDeleteTarget(task);
+            }}
+          />
         </div>
       </div>
 

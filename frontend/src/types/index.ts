@@ -28,6 +28,9 @@ export interface Project {
   ownerId: number;
   owner: Pick<User, "id" | "firstName" | "lastName" | "email">;
   _count?: { tasks: number; members: number };
+  members?: Array<{
+    user: Pick<User, "id" | "firstName" | "lastName" | "email" | "role">;
+  }>;
   createdAt: string;
   updatedAt: string;
 }

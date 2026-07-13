@@ -6,8 +6,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import AppLayout from "@/components/layout/AppLayout";
-import { getProjects, createProject, updateProject, deleteProject } from "@/services/project.service";
-import { Project } from "@/types";
+import { getProjects, createProject, updateProject, deleteProject, getProjectMembers, addProjectMember, removeProjectMember } from "@/services/project.service";
+import { getUsers } from "@/services/user.service";
+import { Project, User } from "@/types";
+import { useAuth } from "@/hooks/useAuth";
+import ProjectKanbanBoard from "@/components/ui/ProjectKanbanBoard";
 
 const schema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
@@ -57,14 +60,24 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
 }
 
 export default function ProjectsPage() {
+  const { role, user } = useAuth();
+  const canCreateProject = ["ADMIN", "MANAGER"].includes(role ?? "");
+  const canManageMembers = ["ADMIN", "MANAGER"].includes(role ?? "");
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState("");
+  const [showMyProjects, setShowMyProjects] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
+  const [membersModalOpen, setMembersModalOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projectMembers, setProjectMembers] = useState<User[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<User[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<number | "">("");
+  const [memberLoading, setMemberLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -73,13 +86,71 @@ export default function ProjectsPage() {
 
   const fetchProjects = useCallback(() => {
     setLoading(true);
-    getProjects(page, 20, search)
+    const memberId = showMyProjects && user?.id ? user.id : undefined;
+    getProjects(page, 20, search, memberId)
       .then((data) => { setProjects(data.projects ?? []); setTotalPages(data.pagination?.totalPages ?? 1); })
       .catch(() => toast.error("Failed to load projects"))
       .finally(() => setLoading(false));
-  }, [page, search]);
+  }, [page, search, showMyProjects, user?.id]);
 
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
+
+  useEffect(() => {
+    if (canManageMembers) {
+      getUsers(1, 100)
+        .then((data) => setAvailableUsers(data.users ?? []))
+        .catch(() => toast.error("Failed to load users"));
+    }
+  }, [canManageMembers]);
+
+  const loadProjectMembers = async (projectId: number) => {
+    setMemberLoading(true);
+    try {
+      const members = await getProjectMembers(projectId);
+      setProjectMembers(members);
+    } catch {
+      toast.error("Failed to load project members");
+    } finally {
+      setMemberLoading(false);
+    }
+  };
+
+  const openMembers = (project: Project) => {
+    setSelectedProject(project);
+    setMembersModalOpen(true);
+    setSelectedUserId("");
+    loadProjectMembers(project.id);
+  };
+
+  const addMember = async () => {
+    if (!selectedProject || !selectedUserId) return;
+    setMemberLoading(true);
+    try {
+      await addProjectMember(selectedProject.id, selectedUserId as number);
+      toast.success("Member added");
+      loadProjectMembers(selectedProject.id);
+      fetchProjects();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to add member");
+    } finally {
+      setMemberLoading(false);
+    }
+  };
+
+  const removeMember = async (userId: number) => {
+    if (!selectedProject) return;
+    setMemberLoading(true);
+    try {
+      await removeProjectMember(selectedProject.id, userId);
+      toast.success("Member removed");
+      loadProjectMembers(selectedProject.id);
+      fetchProjects();
+    } catch {
+      toast.error("Failed to remove member");
+    } finally {
+      setMemberLoading(false);
+    }
+  };
 
   const openCreate = () => { setEditProject(null); reset({ name: "", description: "", status: "ACTIVE" }); setModalOpen(true); };
   const openEdit = (p: Project) => { setEditProject(p); reset({ name: p.name, description: p.description ?? "", status: (p.status as "ACTIVE" | "PLANNING" | "COMPLETED") }); setModalOpen(true); };
@@ -109,95 +180,42 @@ export default function ProjectsPage() {
     <AppLayout>
       <div style={{ maxWidth: 1200, fontFamily: "'-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12 }}>
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 600, color: "#DFE1E6", margin: "0 0 4px" }}>Projects</h2>
             <p style={{ fontSize: 13, color: "#8A94A5", margin: 0 }}>{projects.length} projects</p>
           </div>
-          <button onClick={openCreate} style={{
-            display: "flex", alignItems: "center", gap: 6,
-            background: accentBlue, color: "#fff", border: "none",
-            borderRadius: 3, padding: "8px 14px", fontSize: 13, fontWeight: 600,
-            cursor: "pointer", fontFamily: "inherit"
-          }}
-          onMouseEnter={e => (e.currentTarget.style.background = "#0065FF")}
-          onMouseLeave={e => (e.currentTarget.style.background = accentBlue)}>
-            <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> New Project
-          </button>
-        </div>
-
-        {/* Table card */}
-        <div style={{ ...darkCard, overflow: "hidden" }}>
-          {/* Search bar */}
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid #2C333A", display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ position: "relative", width: 260 }}>
-              <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#8A94A5", pointerEvents: "none" }}>🔍</span>
-              <input
-                style={{ ...inputSty, paddingLeft: 32, height: 34 }}
-                placeholder="Search projects..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { setPage(1); setSearch(searchInput); } }}
-              />
-            </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#8A94A5", fontSize: 13 }}>
+              <input type="checkbox" checked={showMyProjects} onChange={(e) => setShowMyProjects(e.target.checked)} style={{ accent: accentBlue }} />
+              My projects only
+            </label>
+            {canCreateProject && (
+              <button onClick={openCreate} style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: accentBlue, color: "#fff", border: "none",
+                borderRadius: 3, padding: "8px 14px", fontSize: 13, fontWeight: 600,
+                cursor: "pointer", fontFamily: "inherit"
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = "#0065FF")}
+              onMouseLeave={e => (e.currentTarget.style.background = accentBlue)}>
+                <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> New Project
+              </button>
+            )}
           </div>
-
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={{ background: "#1D2125" }}>
-              <tr>
-                {["Name", "Description", "Status", "Owner", "Actions"].map((h) => (
-                  <th key={h} style={thStyle}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>
-                    {Array.from({ length: 5 }).map((_, j) => (
-                      <td key={j} style={tdStyle}><div style={{ height: 12, background: "#2C333A", borderRadius: 4 }} /></td>
-                    ))}
-                  </tr>
-                ))
-              ) : projects.length === 0 ? (
-                <tr><td colSpan={5} style={{ padding: 60, textAlign: "center", color: "#8A94A5", fontSize: 14 }}>No projects yet. Create your first one!</td></tr>
-              ) : projects.map((project) => (
-                <tr key={project.id}
-                  onMouseEnter={e => (e.currentTarget.style.background = "#1D2125")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                  style={{ transition: "background 0.1s", cursor: "default" }}>
-                  <td style={{ ...tdStyle, fontWeight: 600, color: "#DFE1E6" }}>{project.name}</td>
-                  <td style={{ ...tdStyle, maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{project.description || "—"}</td>
-                  <td style={tdStyle}><StatusBadge status={project.status} /></td>
-                  <td style={tdStyle}>{project.owner ? `${project.owner.firstName} ${project.owner.lastName}` : "—"}</td>
-                  <td style={tdStyle}>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <button onClick={() => openEdit(project)} style={{ background: "#2C333A", border: "none", color: "#8A94A5", cursor: "pointer", borderRadius: 3, padding: "4px 8px", fontSize: 12 }}
-                        onMouseEnter={e => { e.currentTarget.style.background = "#388BFF20"; e.currentTarget.style.color = "#4C9AFF"; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = "#2C333A"; e.currentTarget.style.color = "#8A94A5"; }}>
-                        Edit
-                      </button>
-                      <button onClick={() => setDeleteTarget(project)} style={{ background: "#2C333A", border: "none", color: "#8A94A5", cursor: "pointer", borderRadius: 3, padding: "4px 8px", fontSize: 12 }}
-                        onMouseEnter={e => { e.currentTarget.style.background = "#FF563020"; e.currentTarget.style.color = "#FF5630"; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = "#2C333A"; e.currentTarget.style.color = "#8A94A5"; }}>
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "12px 16px", borderTop: "1px solid #2C333A" }}>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button key={p} onClick={() => setPage(p)} style={{ width: 28, height: 28, borderRadius: 3, border: "1px solid", borderColor: p === page ? accentBlue : "#2C333A", background: p === page ? accentBlue : "transparent", color: p === page ? "#fff" : "#8A94A5", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>{p}</button>
-              ))}
-            </div>
-          )}
         </div>
+
+        {/* Kanban Board */}
+        <ProjectKanbanBoard 
+          projects={projects}
+          isLoading={loading}
+          onProjectEdit={openEdit}
+          onProjectMembers={canManageMembers ? openMembers : undefined}
+          onProjectDelete={(id) => {
+            const project = projects.find(p => p.id === id);
+            if (project) setDeleteTarget(project);
+          }}
+        />
       </div>
 
       {/* Create/Edit Modal */}
@@ -229,6 +247,63 @@ export default function ProjectsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Members Modal */}
+      {membersModalOpen && selectedProject && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)" }} onClick={() => setMembersModalOpen(false)} />
+          <div style={{ position: "relative", background: "#22272B", border: "1px solid #2C333A", borderRadius: 6, width: "100%", maxWidth: 540, padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.5)", maxHeight: "90vh", overflowY: "auto" }}>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: "#DFE1E6", margin: "0 0 16px" }}>Project Members</h3>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, color: "#8A94A5", marginBottom: 4 }}>Project</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{selectedProject.name}</div>
+            </div>
+
+            {canManageMembers && (
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 18 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelSty}>Add member</label>
+                  <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value ? Number(e.target.value) : "")} style={{ ...inputSty, width: "100%" }}>
+                    <option value="">Select user</option>
+                    {availableUsers.map((user) => (
+                      <option key={user.id} value={user.id}>{user.firstName} {user.lastName} ({user.role.name})</option>
+                    ))}
+                  </select>
+                </div>
+                <button onClick={addMember} disabled={!selectedUserId || memberLoading} style={{ padding: "10px 16px", borderRadius: 4, border: "none", background: accentBlue, color: "#fff", fontWeight: 600, cursor: selectedUserId && !memberLoading ? "pointer" : "not-allowed" }}>
+                  {memberLoading ? "Adding..." : "Add"}
+                </button>
+              </div>
+            )}
+
+            <div>
+              <div style={{ fontSize: 12, color: "#8A94A5", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Current Members</div>
+              <div style={{ display: "grid", gap: 12 }}>
+                {memberLoading ? (
+                  <div style={{ color: "#8A94A5" }}>Loading members…</div>
+                ) : projectMembers.length === 0 ? (
+                  <div style={{ color: "#8A94A5" }}>No members assigned.</div>
+                ) : (
+                  projectMembers.map((member) => (
+                    <div key={member.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: "#161A1D", borderRadius: 8, border: "1px solid #2C333A" }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{member.firstName} {member.lastName}</div>
+                        <div style={{ fontSize: 12, color: "#8A94A5" }}>{member.email}</div>
+                      </div>
+                      {canManageMembers && (
+                        <button onClick={() => removeMember(member.id)} disabled={memberLoading} style={{ padding: "8px 12px", borderRadius: 6, border: "none", background: "#DE350B", color: "#fff", cursor: memberLoading ? "not-allowed" : "pointer" }}>
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <button onClick={() => setMembersModalOpen(false)} style={{ marginTop: 20, padding: "10px 16px", borderRadius: 6, border: "1px solid #2C333A", background: "transparent", color: "#8A94A5" }}>Close</button>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirm */}
       {deleteTarget && (
