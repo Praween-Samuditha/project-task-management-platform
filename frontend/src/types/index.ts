@@ -1,6 +1,10 @@
-// Shared TypeScript types for the application
-
 export type Role = "ADMIN" | "MANAGER" | "MEMBER";
+
+export interface RoleObj {
+  id: number;
+  name: Role;
+  description?: string;
+}
 
 export interface User {
   id: number;
@@ -11,7 +15,7 @@ export interface User {
   avatar?: string;
   isActive: boolean;
   roleId: number;
-  role: { id: number; name: Role };
+  role: RoleObj;
   createdAt: string;
   updatedAt: string;
 }
@@ -23,16 +27,20 @@ export interface Project {
   status: string;
   ownerId: number;
   owner: Pick<User, "id" | "firstName" | "lastName" | "email">;
+  _count?: { tasks: number; members: number };
   createdAt: string;
   updatedAt: string;
 }
+
+export type TaskStatus = "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE";
+export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
 export interface Task {
   id: number;
   title: string;
   description?: string;
-  status: "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE";
-  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  status: TaskStatus;
+  priority: TaskPriority;
   dueDate?: string;
   projectId: number;
   project: Pick<Project, "id" | "name">;
@@ -42,6 +50,14 @@ export interface Task {
   createdBy: Pick<User, "id" | "firstName" | "lastName">;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProjectMember {
+  id: number;
+  projectId: number;
+  userId: number;
+  user: Pick<User, "id" | "firstName" | "lastName" | "email" | "role">;
+  createdAt: string;
 }
 
 export interface DashboardStats {
@@ -54,7 +70,26 @@ export interface DashboardStats {
   completedTasks: number;
 }
 
+export interface PaginatedResponse<T> {
+  data?: T[];
+  tasks?: T[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
 export interface AuthResponse {
   token: string;
   user: User;
+}
+
+export interface DecodedToken {
+  id: number;
+  email: string;
+  role: Role;
+  iat: number;
+  exp: number;
 }
