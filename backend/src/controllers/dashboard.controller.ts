@@ -1,12 +1,19 @@
-import { Response } from "express";
-import { AuthRequest } from "../middleware/auth.middleware";
-import { getDashboardStats } from "../services/dashboard.service";
+import { Request, Response } from "express";
+import * as dashboardService from "../services/dashboard.service";
 
-export const getDashboard = async (req: AuthRequest, res: Response) => {
+export const getDashboardStats = async (
+  req: Request,
+  res: Response
+) => {
   try {
-    const stats = await getDashboardStats();
-    return res.json(stats);
-  } catch (error: any) {
-    return res.status(500).json({ message: error.message });
+    const stats = await dashboardService.getDashboardStats();
+
+    return res.status(200).json(stats);
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Failed to fetch dashboard statistics.",
+    });
   }
 };
