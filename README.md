@@ -3,7 +3,7 @@
 A full-stack **Project and Team Task Management Platform** developed using **Next.js**, **Node.js**, **Express.js**, **Prisma ORM**, and **MySQL**. The platform provides secure authentication, role-based access control, project and task management, dashboard analytics, and a responsive user interface. It also includes a GitHub Actions CI workflow for automated build validation.
 
 **GitHub Repository:**  
-:contentReference[oaicite:0]{index=0}
+https://github.com/Praween-Samuditha/project-task-management-platform.git
 
 ---
 
