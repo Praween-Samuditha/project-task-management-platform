@@ -9,7 +9,7 @@ export const getDashboardStats = async (memberId?: number, managerId?: number) =
     : {};
 
   const projectIds = managerId
-    ? (await prisma.project.findMany({ where: projectWhere, select: { id: true } })).map(p => p.id)
+    ? (await prisma.project.findMany({ where: projectWhere, select: { id: true } })).map((p: { id: number }) => p.id)
     : undefined;
 
   const managerTaskWhere = projectIds ? { projectId: { in: projectIds } } : {};

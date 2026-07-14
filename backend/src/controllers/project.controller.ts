@@ -58,7 +58,7 @@ export const updateProject = async (req: AuthRequest, res: Response) => {
     if (role === "MANAGER") {
       const project = await projectService.getProjectById(id);
       if (!project) return res.status(404).json({ message: "Project not found" });
-      const isMember = project.members?.some((m: any) => m.user?.id === userId);
+      const isMember = project.members?.some((m: { user?: { id: number } }) => m.user?.id === userId);
       if (project.ownerId !== userId && !isMember) {
         return res.status(403).json({ message: "You can only update your own projects" });
       }
