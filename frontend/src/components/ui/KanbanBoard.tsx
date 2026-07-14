@@ -4,112 +4,77 @@ import React, { useState } from "react";
 import { Task } from "@/types";
 import KanbanCard from "./KanbanCard";
 import Loader from "./Loader";
+import { useTheme } from "@/components/layout/Navbar";
 
 interface KanbanBoardProps {
   tasks: Task[];
   isLoading?: boolean;
   onTaskUpdate?: (task: Task) => void;
+  onTaskEdit?: (task: Task) => void;
   onTaskDelete?: (id: number) => void;
+  readOnly?: boolean;
 }
 
 const COLUMNS = [
-  { id: "TODO", title: "TO DO", color: "bg-blue-900" },
-  { id: "IN_PROGRESS", title: "IN PROGRESS", color: "bg-yellow-900" },
-  { id: "IN_REVIEW", title: "IN REVIEW", color: "bg-purple-900" },
-  { id: "DONE", title: "DONE", color: "bg-green-900" },
+  { id: "TODO",        title: "TO DO",       headerBg: "#1D4ED8" },
+  { id: "IN_PROGRESS", title: "IN PROGRESS", headerBg: "#92400E" },
+  { id: "IN_REVIEW",   title: "IN REVIEW",   headerBg: "#6B21A8" },
+  { id: "DONE",        title: "DONE",        headerBg: "#14532D" },
 ];
 
-export default function KanbanBoard({
-  tasks,
-  isLoading = false,
-  onTaskUpdate,
-  onTaskDelete,
-}: KanbanBoardProps) {
+const LIGHT = {
+  boardBg: "#F1F2F4", colBg: "#FFFFFF", colBorder: "#E8ECF0",
+  emptyText: "#9CA3AF", dragOverBg: "#E8ECF0",
+};
+const DARK = {
+  boardBg: "#161A1D", colBg: "#1D2125", colBorder: "#2C333A",
+  emptyText: "#4B5563", dragOverBg: "#2C333A",
+};
+
+export default function KanbanBoard({ tasks, isLoading = false, onTaskUpdate, onTaskEdit, onTaskDelete, readOnly = false }: KanbanBoardProps) {
+  const { theme } = useTheme();
+  const T = theme === "dark" ? DARK : LIGHT;
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
-  // Group tasks by status
-  const groupedTasks = COLUMNS.reduce(
-    (acc, column) => {
-      acc[column.id] = tasks.filter((task) => task.status === column.id);
-      return acc;
-    },
-    {} as Record<string, Task[]>
-  );
-
-  const handleDragStart = (task: Task) => {
-    setDraggedTask(task);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.currentTarget.classList.add("bg-gray-700");
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.currentTarget.classList.remove("bg-gray-700");
-  };
+  const groupedTasks = COLUMNS.reduce((acc, col) => {
+    acc[col.id] = tasks.filter(t => t.status === col.id);
+    return acc;
+  }, {} as Record<string, Task[]>);
 
   const handleDrop = (e: React.DragEvent, newStatus: string) => {
     e.preventDefault();
-    e.currentTarget.classList.remove("bg-gray-700");
-
-    if (draggedTask) {
-      const updatedTask = { ...draggedTask, status: newStatus as any };
-      onTaskUpdate?.(updatedTask);
-      setDraggedTask(null);
-    }
+    setDragOverCol(null);
+    if (draggedTask) { onTaskUpdate?.({ ...draggedTask, status: newStatus as Task["status"] }); setDraggedTask(null); }
   };
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-96">
-        <Loader />
-      </div>
-    );
+    return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 384 }}><Loader /></div>;
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-6 bg-gray-900 rounded-lg">
-      {COLUMNS.map((column) => (
-        <div
-          key={column.id}
-          className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700"
-        >
-          {/* Column Header */}
-          <div className={`${column.color} px-4 py-3 border-b border-gray-700`}>
-            <h2 className="font-semibold text-white text-sm">
-              {column.title}
-            </h2>
-            <p className="text-xs text-gray-300 mt-1">
-              {groupedTasks[column.id]?.length || 0} tasks
-            </p>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, padding: 24, background: T.boardBg, borderRadius: 8, transition: "background 0.2s" }}>
+      {COLUMNS.map(col => (
+        <div key={col.id} style={{ background: T.colBg, borderRadius: 8, overflow: "hidden", border: `1px solid ${T.colBorder}`, transition: "background 0.2s" }}>
+          <div style={{ background: col.headerBg, padding: "12px 16px" }}>
+            <h2 style={{ fontWeight: 600, color: "#fff", fontSize: 14, margin: 0 }}>{col.title}</h2>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.75)", margin: "4px 0 0" }}>{groupedTasks[col.id]?.length ?? 0} tasks</p>
           </div>
-
-          {/* Cards Container */}
           <div
-            className="p-4 min-h-96 transition-colors"
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, column.id)}
+            style={{ padding: 16, minHeight: 384, transition: "background 0.15s", background: dragOverCol === col.id ? T.dragOverBg : "transparent" }}
+            onDragOver={!readOnly ? (e) => { e.preventDefault(); setDragOverCol(col.id); } : undefined}
+            onDragLeave={!readOnly ? () => setDragOverCol(null) : undefined}
+            onDrop={!readOnly ? (e) => handleDrop(e, col.id) : undefined}
           >
-            {groupedTasks[column.id] && groupedTasks[column.id].length > 0 ? (
-              groupedTasks[column.id].map((task) => (
-                <div
-                  key={task.id}
-                  draggable
-                  onDragStart={() => handleDragStart(task)}
-                  className={draggedTask?.id === task.id ? "opacity-50" : ""}
-                >
-                  <KanbanCard
-                    task={task}
-                    onUpdate={onTaskUpdate}
-                    onDelete={onTaskDelete}
-                  />
+            {groupedTasks[col.id]?.length > 0 ? (
+              groupedTasks[col.id].map(task => (
+                <div key={task.id} draggable={!readOnly} onDragStart={!readOnly ? () => setDraggedTask(task) : undefined} style={{ opacity: draggedTask?.id === task.id ? 0.5 : 1 }}>
+                  <KanbanCard task={task} onUpdate={!readOnly ? onTaskUpdate : undefined} onEdit={!readOnly ? onTaskEdit : undefined} onDelete={!readOnly ? onTaskDelete : undefined} readOnly={readOnly} />
                 </div>
               ))
             ) : (
-              <div className="flex items-center justify-center h-96 text-gray-500">
-                <p className="text-sm">No tasks</p>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 384 }}>
+                <p style={{ fontSize: 14, color: T.emptyText }}>No tasks</p>
               </div>
             )}
           </div>

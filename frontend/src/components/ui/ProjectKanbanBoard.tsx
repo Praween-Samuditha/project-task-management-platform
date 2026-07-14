@@ -3,7 +3,56 @@
 import React from "react";
 import { Project } from "@/types";
 import Loader from "./Loader";
+import { useTheme } from "@/components/layout/Navbar";
 
+// ── theme tokens ──────────────────────────────────────────────────────────────
+const LIGHT = {
+  boardBg:    "#F1F2F4",
+  colBg:      "#FFFFFF",
+  colBorder:  "#E8ECF0",
+  cardBg:     "#FFFFFF",
+  cardBorder: "#E8ECF0",
+  cardHover:  "#F8F9FB",
+  idText:     "#8590A2",
+  titleText:  "#172B4D",
+  descText:   "#44546F",
+  statsText:  "#44546F",
+  memberLabel:"#172B4D",
+  memberText: "#44546F",
+  ownerText:  "#8590A2",
+  divider:    "#E8ECF0",
+  emptyText:  "#8590A2",
+  colHeaderText: "#FFFFFF",
+  btnMembers: { bg: "#F1F2F4", color: "#172B4D", hover: "#E2E6EA" },
+};
+
+const DARK = {
+  boardBg:    "#161A1D",
+  colBg:      "#22272B",
+  colBorder:  "#2C333A",
+  cardBg:     "#1D2125",
+  cardBorder: "#2C333A",
+  cardHover:  "#22272B",
+  idText:     "#8A94A5",
+  titleText:  "#DFE1E6",
+  descText:   "#8A94A5",
+  statsText:  "#B3BAC5",
+  memberLabel:"#DFE1E6",
+  memberText: "#B3BAC5",
+  ownerText:  "#6B7280",
+  divider:    "#2C333A",
+  emptyText:  "#6B7280",
+  colHeaderText: "#FFFFFF",
+  btnMembers: { bg: "#2C333A", color: "#B3BAC5", hover: "#3A4149" },
+};
+
+const COLUMNS = [
+  { id: "PLANNING",  title: "PLANNING",  headerBg: "#1D4ED8" },
+  { id: "ACTIVE",    title: "ACTIVE",    headerBg: "#166534" },
+  { id: "COMPLETED", title: "COMPLETED", headerBg: "#374151" },
+];
+
+// ── Card ──────────────────────────────────────────────────────────────────────
 interface ProjectKanbanCardProps {
   project: Project;
   onEdit?: (project: Project) => void;
@@ -12,57 +61,78 @@ interface ProjectKanbanCardProps {
 }
 
 function ProjectKanbanCard({ project, onEdit, onMembers, onDelete }: ProjectKanbanCardProps) {
+  const { theme } = useTheme();
+  const T = theme === "dark" ? DARK : LIGHT;
+
   return (
-    <div className="bg-gray-800 rounded-lg p-4 mb-3 border border-gray-700 hover:border-gray-600 cursor-default transition-colors">
-      {/* Project ID */}
-      <div className="text-xs text-gray-400 mb-2">#{project.id}</div>
+    <div
+      style={{
+        background: T.cardBg,
+        border: `1px solid ${T.cardBorder}`,
+        borderRadius: 10,
+        padding: "14px 16px",
+        marginBottom: 12,
+        transition: "background 0.15s, border-color 0.15s",
+        cursor: "default",
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = T.cardHover)}
+      onMouseLeave={e => (e.currentTarget.style.background = T.cardBg)}
+    >
+      {/* ID */}
+      <div style={{ fontSize: 11, color: T.idText, marginBottom: 6 }}>#{project.id}</div>
 
       {/* Title */}
-      <h3 className="font-semibold text-white mb-2 text-sm line-clamp-2">
+      <h3 style={{ fontSize: 14, fontWeight: 700, color: T.titleText, margin: "0 0 4px", lineHeight: 1.3 }}>
         {project.name}
       </h3>
 
       {/* Description */}
       {project.description && (
-        <p className="text-xs text-gray-400 mb-3 line-clamp-2">
+        <p style={{ fontSize: 12, color: T.descText, margin: "0 0 10px", lineHeight: 1.4 }}>
           {project.description}
         </p>
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-2 mb-3 text-xs text-gray-300">
-        <div>Tasks: {project._count?.tasks || 0}</div>
-        <div>Members: {project._count?.members || 0}</div>
+      <div style={{ display: "flex", gap: 20, fontSize: 12, color: T.statsText, marginBottom: 10 }}>
+        <span>Tasks: {project._count?.tasks ?? 0}</span>
+        <span>Members: {project._count?.members ?? 0}</span>
       </div>
 
+      {/* Members list */}
       {project.members && project.members.length > 0 && (
-        <div className="mb-3 text-xs text-gray-300">
-          <div className="font-semibold text-white text-[11px] uppercase tracking-[0.2em] mb-1">Members</div>
-          <div className="leading-5">
-            {project.members.slice(0, 2).map((member, index) => (
-              <span key={member.user.id}>
-                {member.user.firstName} {member.user.lastName}{index < Math.min(project.members.length, 2) - 1 ? ", " : ""}
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: T.memberLabel, marginBottom: 4 }}>
+            Members
+          </div>
+          <div style={{ fontSize: 12, color: T.memberText, lineHeight: 1.6 }}>
+            {project.members.slice(0, 2).map((m, i) => (
+              <span key={m.user.id}>
+                {m.user.firstName} {m.user.lastName}
+                {i < Math.min(project.members!.length, 2) - 1 ? ", " : ""}
               </span>
             ))}
             {project.members.length > 2 && (
-              <span className="text-gray-400"> +{project.members.length - 2} more</span>
+              <span style={{ color: T.idText }}> +{project.members.length - 2} more</span>
             )}
           </div>
         </div>
       )}
 
       {/* Owner */}
-      <div className="text-xs text-gray-500 border-t border-gray-700 pt-2">
+      <div style={{ fontSize: 11, color: T.ownerText, borderTop: `1px solid ${T.divider}`, paddingTop: 8, marginBottom: (onEdit || onMembers || onDelete) ? 10 : 0 }}>
         Owner: {project.owner.firstName} {project.owner.lastName}
       </div>
 
       {/* Actions */}
       {(onEdit || onMembers || onDelete) && (
-        <div className="flex gap-2 mt-3">
+        <div style={{ display: "flex", gap: 6 }}>
           {onEdit && (
             <button
               onClick={() => onEdit(project)}
-              className="flex-1 text-xs bg-blue-900 hover:bg-blue-800 text-white py-1 rounded transition-colors"
+              style={{ flex: 1, fontSize: 12, fontWeight: 600, background: "#1D4ED8", color: "#fff", border: "none", borderRadius: 6, padding: "6px 0", cursor: "pointer", transition: "background 0.15s" }}
+              onMouseEnter={e => (e.currentTarget.style.background = "#1E40AF")}
+              onMouseLeave={e => (e.currentTarget.style.background = "#1D4ED8")}
             >
               Edit
             </button>
@@ -70,7 +140,9 @@ function ProjectKanbanCard({ project, onEdit, onMembers, onDelete }: ProjectKanb
           {onMembers && (
             <button
               onClick={() => onMembers(project)}
-              className="flex-1 text-xs bg-slate-900 hover:bg-slate-800 text-white py-1 rounded transition-colors"
+              style={{ flex: 1, fontSize: 12, fontWeight: 600, background: T.btnMembers.bg, color: T.btnMembers.color, border: "none", borderRadius: 6, padding: "6px 0", cursor: "pointer", transition: "background 0.15s" }}
+              onMouseEnter={e => (e.currentTarget.style.background = T.btnMembers.hover)}
+              onMouseLeave={e => (e.currentTarget.style.background = T.btnMembers.bg)}
             >
               Members
             </button>
@@ -78,7 +150,9 @@ function ProjectKanbanCard({ project, onEdit, onMembers, onDelete }: ProjectKanb
           {onDelete && (
             <button
               onClick={() => onDelete(project.id)}
-              className="flex-1 text-xs bg-red-900 hover:bg-red-800 text-white py-1 rounded transition-colors"
+              style={{ flex: 1, fontSize: 12, fontWeight: 600, background: "#B91C1C", color: "#fff", border: "none", borderRadius: 6, padding: "6px 0", cursor: "pointer", transition: "background 0.15s" }}
+              onMouseEnter={e => (e.currentTarget.style.background = "#991B1B")}
+              onMouseLeave={e => (e.currentTarget.style.background = "#B91C1C")}
             >
               Delete
             </button>
@@ -89,6 +163,7 @@ function ProjectKanbanCard({ project, onEdit, onMembers, onDelete }: ProjectKanb
   );
 }
 
+// ── Board ─────────────────────────────────────────────────────────────────────
 interface ProjectKanbanBoardProps {
   projects: Project[];
   isLoading?: boolean;
@@ -97,12 +172,6 @@ interface ProjectKanbanBoardProps {
   onProjectDelete?: (id: number) => void;
 }
 
-const COLUMNS = [
-  { id: "PLANNING", title: "PLANNING", color: "bg-blue-900" },
-  { id: "ACTIVE", title: "ACTIVE", color: "bg-green-900" },
-  { id: "COMPLETED", title: "COMPLETED", color: "bg-gray-700" },
-];
-
 export default function ProjectKanbanBoard({
   projects,
   isLoading = false,
@@ -110,55 +179,59 @@ export default function ProjectKanbanBoard({
   onProjectMembers,
   onProjectDelete,
 }: ProjectKanbanBoardProps) {
-  // Group projects by status
-  const groupedProjects = COLUMNS.reduce(
-    (acc, column) => {
-      acc[column.id] = projects.filter((project) => project.status === column.id);
-      return acc;
-    },
-    {} as Record<string, Project[]>
-  );
+  const { theme } = useTheme();
+  const T = theme === "dark" ? DARK : LIGHT;
+
+  const grouped = COLUMNS.reduce((acc, col) => {
+    acc[col.id] = projects.filter(p => p.status === col.id);
+    return acc;
+  }, {} as Record<string, Project[]>);
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-96">
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 384 }}>
         <Loader />
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-gray-900 rounded-lg">
-      {COLUMNS.map((column) => (
-        <div
-          key={column.id}
-          className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700"
-        >
-          {/* Column Header */}
-          <div className={`${column.color} px-4 py-3 border-b border-gray-700`}>
-            <h2 className="font-semibold text-white text-sm">
-              {column.title}
+    <div style={{
+      display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20,
+      padding: 20, background: T.boardBg, borderRadius: 10,
+      transition: "background 0.2s",
+    }}>
+      {COLUMNS.map(col => (
+        <div key={col.id} style={{
+          background: T.colBg, border: `1px solid ${T.colBorder}`,
+          borderRadius: 10, overflow: "hidden",
+          transition: "background 0.2s, border-color 0.2s",
+        }}>
+          {/* Column header */}
+          <div style={{ background: col.headerBg, padding: "12px 16px" }}>
+            <h2 style={{ fontSize: 13, fontWeight: 700, color: T.colHeaderText, margin: 0, letterSpacing: 0.5 }}>
+              {col.title}
             </h2>
-            <p className="text-xs text-gray-300 mt-1">
-              {groupedProjects[column.id]?.length || 0} projects
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", margin: "2px 0 0" }}>
+              {grouped[col.id]?.length ?? 0} projects
             </p>
           </div>
 
-          {/* Cards Container */}
-          <div className="p-4 min-h-96">
-            {groupedProjects[column.id] && groupedProjects[column.id].length > 0 ? (
-              groupedProjects[column.id].map((project) => (
+          {/* Cards */}
+          <div style={{ padding: 12, minHeight: 300 }}>
+            {grouped[col.id]?.length > 0 ? (
+              grouped[col.id].map(p => (
                 <ProjectKanbanCard
-                  key={project.id}
-                  project={project}
+                  key={p.id}
+                  project={p}
                   onEdit={onProjectEdit}
                   onMembers={onProjectMembers}
                   onDelete={onProjectDelete}
                 />
               ))
             ) : (
-              <div className="flex items-center justify-center h-96 text-gray-500">
-                <p className="text-sm">No projects</p>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200 }}>
+                <p style={{ fontSize: 13, color: T.emptyText }}>No projects</p>
               </div>
             )}
           </div>

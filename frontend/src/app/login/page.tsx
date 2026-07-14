@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import api from "@/services/api";
-import { setToken, setUser } from "@/lib/auth";
+import { setToken, setUser, isAuthenticated } from "@/lib/auth";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email address"),
@@ -21,6 +21,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
+  useEffect(() => {
+    if (isAuthenticated()) router.replace("/dashboard");
+  }, [router]);
+
   const atlassianBlue = "#0052CC";
   const atlassianYellow = "#FFAB00";
   const darkBg = "#0B2147";
@@ -32,6 +36,7 @@ export default function LoginPage() {
       setToken(res.data.token);
       setUser(res.data.user);
       toast.success("Welcome back!");
+      const role = res.data.user?.role?.name ?? res.data.user?.role;
       router.push("/dashboard");
     } catch (e: any) {
       toast.error(e.response?.data?.message || "Invalid credentials");

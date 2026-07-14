@@ -120,3 +120,16 @@ export const updateTask = async (
 export const deleteTask = async (id: number) => {
   return prisma.task.delete({ where: { id } });
 };
+
+// Returns the project if the user owns it or is a member, otherwise null
+export const getProjectForTask = async (projectId: number, userId: number) => {
+  return prisma.project.findFirst({
+    where: {
+      id: projectId,
+      OR: [
+        { ownerId: userId },
+        { members: { some: { userId } } },
+      ],
+    },
+  });
+};

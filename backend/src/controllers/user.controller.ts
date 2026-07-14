@@ -44,6 +44,28 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const createUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const { firstName, lastName, email, password, roleId } = req.body;
+    if (!firstName || !lastName || !email || !password) {
+      return res.status(400).json({ message: "firstName, lastName, email and password are required" });
+    }
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) return res.status(400).json({ message: "Email already exists" });
+
+    const { hashPassword } = await import("../utils/hash");
+    const hashed = await hashPassword(password);
+
+    const user = await prisma.user.create({
+      data: { firstName, lastName, email, password: hashed, roleId: roleId ?? 3 },
+      select: { id: true, firstName: true, lastName: true, email: true, isActive: true, role: { select: { id: true, name: true } }, createdAt: true },
+    });
+    return res.status(201).json(user);
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 export const getAllUsers = async (req: AuthRequest, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;

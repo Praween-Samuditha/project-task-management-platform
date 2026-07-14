@@ -1,43 +1,30 @@
 import prisma from "../config/prisma";
 
-export const getDashboardStats = async () => {
-  const totalUsers = await prisma.user.count();
+export const getDashboardStats = async (memberId?: number, managerId?: number) => {
+  // MEMBER: tasks assigned to them; MANAGER: tasks/projects they own or are member of; ADMIN: all
+  const taskWhere = memberId ? { assigneeId: memberId } : {};
 
-  const totalProjects = await prisma.project.count();
+  const projectWhere = managerId
+    ? { OR: [{ ownerId: managerId }, { members: { some: { userId: managerId } } }] }
+    : {};
 
-  const activeProjects = await prisma.project.count({
-    where: {
-      status: "ACTIVE",
-    },
-  });
+  const projectIds = managerId
+    ? (await prisma.project.findMany({ where: projectWhere, select: { id: true } })).map(p => p.id)
+    : undefined;
 
-  const totalTasks = await prisma.task.count();
+  const managerTaskWhere = projectIds ? { projectId: { in: projectIds } } : {};
+  const finalTaskWhere = memberId ? taskWhere : managerTaskWhere;
 
-  const todoTasks = await prisma.task.count({
-    where: {
-      status: "TODO",
-    },
-  });
+  const [totalUsers, totalProjects, activeProjects, totalTasks, todoTasks, inProgressTasks, completedTasks] =
+    await Promise.all([
+      memberId ? 0 : managerId ? 0 : prisma.user.count(),
+      memberId ? 0 : prisma.project.count({ where: projectWhere }),
+      memberId ? 0 : prisma.project.count({ where: { ...projectWhere, status: "ACTIVE" } }),
+      prisma.task.count({ where: finalTaskWhere }),
+      prisma.task.count({ where: { ...finalTaskWhere, status: "TODO" } }),
+      prisma.task.count({ where: { ...finalTaskWhere, status: "IN_PROGRESS" } }),
+      prisma.task.count({ where: { ...finalTaskWhere, status: "DONE" } }),
+    ]);
 
-  const inProgressTasks = await prisma.task.count({
-    where: {
-      status: "IN_PROGRESS",
-    },
-  });
-
-  const completedTasks = await prisma.task.count({
-    where: {
-      status: "DONE",
-    },
-  });
-
-  return {
-    totalUsers,
-    totalProjects,
-    activeProjects,
-    totalTasks,
-    todoTasks,
-    inProgressTasks,
-    completedTasks,
-  };
+  return { totalUsers, totalProjects, activeProjects, totalTasks, todoTasks, inProgressTasks, completedTasks };
 };

@@ -11,6 +11,8 @@ import { getUsers } from "@/services/user.service";
 import { Project, User } from "@/types";
 import { useAuth } from "@/hooks/useAuth";
 import ProjectKanbanBoard from "@/components/ui/ProjectKanbanBoard";
+import { useWorkspace } from "@/lib/WorkspaceContext";
+import { useTheme } from "@/components/layout/Navbar";
 
 const schema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
@@ -61,14 +63,19 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
 
 export default function ProjectsPage() {
   const { role, user } = useAuth();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const { current: currentWs, currentProjectIds, addProjectToWorkspace, removeProjectFromWorkspace } = useWorkspace();
   const canCreateProject = ["ADMIN", "MANAGER"].includes(role ?? "");
   const canManageMembers = ["ADMIN", "MANAGER"].includes(role ?? "");
+  const canEditProject = ["ADMIN", "MANAGER"].includes(role ?? "");
+  const canDeleteProject = role === "ADMIN";
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState("");
-  const [showMyProjects, setShowMyProjects] = useState(false);
+  const [showMyProjects, setShowMyProjects] = useState(role === "MANAGER");
   const [searchInput, setSearchInput] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
@@ -87,7 +94,7 @@ export default function ProjectsPage() {
   const fetchProjects = useCallback(() => {
     setLoading(true);
     const memberId = showMyProjects && user?.id ? user.id : undefined;
-    getProjects(page, 20, search, memberId)
+    getProjects(page, 100, search, memberId)
       .then((data) => { setProjects(data.projects ?? []); setTotalPages(data.pagination?.totalPages ?? 1); })
       .catch(() => toast.error("Failed to load projects"))
       .finally(() => setLoading(false));
@@ -158,8 +165,14 @@ export default function ProjectsPage() {
   const onSubmit = async (data: FormData) => {
     setSaving(true);
     try {
-      if (editProject) { await updateProject(editProject.id, data); toast.success("Project updated"); }
-      else { await createProject(data); toast.success("Project created"); }
+      if (editProject) {
+        await updateProject(editProject.id, data);
+        toast.success("Project updated");
+      } else {
+        const created = await createProject(data);
+        addProjectToWorkspace(created.id);
+        toast.success("Project created");
+      }
       setModalOpen(false); fetchProjects();
     } catch (error: any) { toast.error(error.response?.data?.message || "Failed to save"); }
     finally { setSaving(false); }
@@ -168,13 +181,27 @@ export default function ProjectsPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
-    try { await deleteProject(deleteTarget.id); toast.success("Project deleted"); setDeleteTarget(null); fetchProjects(); }
+    try {
+      await deleteProject(deleteTarget.id);
+      removeProjectFromWorkspace(deleteTarget.id);
+      toast.success("Project deleted");
+      setDeleteTarget(null);
+      fetchProjects();
+    }
     catch { toast.error("Failed to delete"); }
     finally { setDeleting(false); }
   };
 
-  const thStyle: React.CSSProperties = { padding: "10px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#8A94A5", textTransform: "uppercase", letterSpacing: 1, borderBottom: "1px solid #2C333A", whiteSpace: "nowrap" };
-  const tdStyle: React.CSSProperties = { padding: "12px 16px", fontSize: 13, color: "#B3BAC5", borderBottom: "1px solid #2C333A" };
+  // filter to only projects in current workspace
+  const wsProjects = currentProjectIds.length > 0
+    ? projects.filter(p => currentProjectIds.includes(p.id))
+    : [];
+
+  const textPrimary = isDark ? "#DFE1E6" : "#1A1D23";
+  const textSecondary = isDark ? "#8A94A5" : "#6B7280";
+  const accent = isDark ? "#4C9EFF" : "#0052CC";
+  const emptyBg = isDark ? "#22272B" : "#FFFFFF";
+  const emptyBorder = isDark ? "#2C333A" : "#E8ECF0";
 
   return (
     <AppLayout>
@@ -182,8 +209,10 @@ export default function ProjectsPage() {
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12 }}>
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 600, color: "#DFE1E6", margin: "0 0 4px" }}>Projects</h2>
-            <p style={{ fontSize: 13, color: "#8A94A5", margin: 0 }}>{projects.length} projects</p>
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: textPrimary, margin: "0 0 4px" }}>
+              {currentWs?.name ?? "Projects"}
+            </h2>
+            <p style={{ fontSize: 13, color: textSecondary, margin: 0 }}>{wsProjects.length} project{wsProjects.length !== 1 ? "s" : ""}</p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#8A94A5", fontSize: 13 }}>
@@ -205,17 +234,50 @@ export default function ProjectsPage() {
           </div>
         </div>
 
+        {/* Empty workspace state */}
+        {!loading && wsProjects.length === 0 && (
+          <div style={{
+            background: emptyBg, border: `2px dashed ${emptyBorder}`, borderRadius: 16,
+            padding: "64px 32px", textAlign: "center",
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>📂</div>
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: textPrimary, margin: "0 0 8px" }}>
+              No projects in this workspace
+            </h3>
+            <p style={{ fontSize: 14, color: textSecondary, margin: "0 0 24px" }}>
+              Get started by creating your first project in <strong>{currentWs?.name}</strong>
+            </p>
+            {canCreateProject && (
+              <button
+                onClick={openCreate}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  background: accent, color: "#fff", border: "none",
+                  borderRadius: 8, padding: "12px 24px", fontSize: 14, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "inherit",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+              >
+                <span style={{ fontSize: 18 }}>+</span> Create First Project
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Kanban Board */}
-        <ProjectKanbanBoard 
-          projects={projects}
-          isLoading={loading}
-          onProjectEdit={openEdit}
-          onProjectMembers={canManageMembers ? openMembers : undefined}
-          onProjectDelete={(id) => {
-            const project = projects.find(p => p.id === id);
-            if (project) setDeleteTarget(project);
-          }}
-        />
+        {(loading || wsProjects.length > 0) && (
+          <ProjectKanbanBoard
+            projects={wsProjects}
+            isLoading={loading}
+            onProjectEdit={canEditProject ? openEdit : undefined}
+            onProjectMembers={canManageMembers ? openMembers : undefined}
+            onProjectDelete={canDeleteProject ? (id) => {
+              const project = projects.find(p => p.id === id);
+              if (project) setDeleteTarget(project);
+            } : undefined}
+          />
+        )}
       </div>
 
       {/* Create/Edit Modal */}

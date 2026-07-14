@@ -6,10 +6,18 @@ import { createTaskSchema, updateTaskSchema } from "../validators/task.validator
 export const createTask = async (req: AuthRequest, res: Response) => {
   try {
     const validatedData = createTaskSchema.parse(req.body);
-    const task = await taskService.createTask({
-      ...validatedData,
-      createdById: req.user.id,
-    });
+    const userId = req.user.id;
+    const role = req.user.role;
+
+    // MANAGER can only create tasks in projects they own or are a member of
+    if (role === "MANAGER") {
+      const project = await taskService.getProjectForTask(validatedData.projectId, userId);
+      if (!project) {
+        return res.status(403).json({ message: "You can only create tasks in your own projects" });
+      }
+    }
+
+    const task = await taskService.createTask({ ...validatedData, createdById: userId });
     return res.status(201).json(task);
   } catch (error: any) {
     if (error.errors) return res.status(400).json({ errors: error.errors });
@@ -48,22 +56,23 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
   try {
     const id = parseInt(req.params.id as string);
     const validatedData = updateTaskSchema.parse(req.body);
-    
-    // Get current task to check permissions
+    const userId = req.user.id;
+    const role = req.user.role;
+
     const currentTask = await taskService.getTaskById(id);
-    if (!currentTask) {
-      return res.status(404).json({ message: "Task not found" });
+    if (!currentTask) return res.status(404).json({ message: "Task not found" });
+
+    if (role === "MANAGER") {
+      const project = await taskService.getProjectForTask(currentTask.projectId, userId);
+      if (!project) {
+        return res.status(403).json({ message: "You can only update tasks in your own projects" });
+      }
     }
 
-    // Allow MEMBER to update only if they're the assignee and only certain fields
-    if (req.user.role === "MEMBER") {
-      if (currentTask.assigneeId !== req.user.id) {
+    if (role === "MEMBER") {
+      if (currentTask.assigneeId !== userId) {
         return res.status(403).json({ message: "You can only update tasks assigned to you" });
       }
-      // MEMBER can only update status and priority
-      validatedData.status = validatedData.status || currentTask.status;
-      validatedData.priority = validatedData.priority || currentTask.priority;
-      // Clear fields MEMBER shouldn't be able to change
       delete (validatedData as any).title;
       delete (validatedData as any).description;
       delete (validatedData as any).assigneeId;
@@ -81,6 +90,19 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
 export const deleteTask = async (req: AuthRequest, res: Response) => {
   try {
     const id = parseInt(req.params.id as string);
+    const userId = req.user.id;
+    const role = req.user.role;
+
+    const currentTask = await taskService.getTaskById(id);
+    if (!currentTask) return res.status(404).json({ message: "Task not found" });
+
+    if (role === "MANAGER") {
+      const project = await taskService.getProjectForTask(currentTask.projectId, userId);
+      if (!project) {
+        return res.status(403).json({ message: "You can only delete tasks in your own projects" });
+      }
+    }
+
     await taskService.deleteTask(id);
     return res.json({ message: "Task deleted successfully" });
   } catch (error: any) {

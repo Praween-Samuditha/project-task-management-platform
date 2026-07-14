@@ -2,75 +2,128 @@
 
 import React from "react";
 import { Task } from "@/types";
-import Badge from "./Badge";
 import { format } from "date-fns";
+import { useTheme } from "@/components/layout/Navbar";
 
 interface KanbanCardProps {
   task: Task;
   onUpdate?: (task: Task) => void;
+  onEdit?: (task: Task) => void;
   onDelete?: (id: number) => void;
+  readOnly?: boolean;
 }
 
-const priorityConfig = {
-  LOW: { color: "info", label: "Low" },
-  MEDIUM: { color: "warning", label: "Medium" },
-  HIGH: { color: "danger", label: "High" },
-  URGENT: { color: "danger", label: "Urgent" },
+const NEXT_STATUS: Record<string, string> = {
+  TODO: "IN_PROGRESS",
+  IN_PROGRESS: "IN_REVIEW",
+  IN_REVIEW: "DONE",
 };
 
-export default function KanbanCard({
-  task,
-  onUpdate,
-  onDelete,
-}: KanbanCardProps) {
-  const priority = priorityConfig[task.priority];
+const NEXT_LABEL: Record<string, string> = {
+  TODO: "In Progress",
+  IN_PROGRESS: "In Review",
+  IN_REVIEW: "Done",
+};
+
+const PRIORITY_COLORS: Record<string, string> = {
+  LOW: "#6B7280", MEDIUM: "#F59E0B", HIGH: "#F97316", URGENT: "#EF4444",
+};
+
+const LIGHT = {
+  cardBg: "#FFFFFF", cardBorder: "#E8ECF0", cardHoverBorder: "#D1D5DB",
+  idColor: "#9CA3AF", titleColor: "#1A1D23", projectColor: "#6B7280",
+  assigneeColor: "#374151", createdByColor: "#9CA3AF", dividerColor: "#F3F4F6",
+  deleteBg: "#FEE2E2", deleteColor: "#DC2626", deleteHoverBg: "#FECACA",
+  moveBg: "#EEF4FF", moveColor: "#0052CC", moveHoverBg: "#D6E8FF", moveBorder: "#C7D9F8",
+};
+
+const DARK = {
+  cardBg: "#22272B", cardBorder: "#2C333A", cardHoverBorder: "#3D4B56",
+  idColor: "#6B7280", titleColor: "#DFE1E6", projectColor: "#8A94A5",
+  assigneeColor: "#B3BAC5", createdByColor: "#6B7280", dividerColor: "#2C333A",
+  deleteBg: "rgba(222,53,11,0.15)", deleteColor: "#FF5630", deleteHoverBg: "rgba(222,53,11,0.25)",
+  moveBg: "rgba(76,158,255,0.12)", moveColor: "#4C9EFF", moveHoverBg: "rgba(76,158,255,0.22)", moveBorder: "rgba(76,158,255,0.25)",
+};
+
+export default function KanbanCard({ task, onUpdate, onEdit, onDelete, readOnly = false }: KanbanCardProps) {
+  const { theme } = useTheme();
+  const T = theme === "dark" ? DARK : LIGHT;
+
   const dueDate = task.dueDate ? new Date(task.dueDate) : null;
   const isOverdue = dueDate && dueDate < new Date() && task.status !== "DONE";
+  const priorityColor = PRIORITY_COLORS[task.priority] ?? PRIORITY_COLORS.MEDIUM;
+  const nextStatus = NEXT_STATUS[task.status];
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4 mb-3 border border-gray-700 hover:border-gray-600 cursor-move transition-colors">
-      {/* Task ID */}
-      <div className="text-xs text-gray-400 mb-2">#{task.id}</div>
+    <div
+      style={{ background: T.cardBg, borderRadius: 8, padding: 16, marginBottom: 12, border: `1px solid ${T.cardBorder}`, cursor: readOnly ? "default" : "move", transition: "border-color 0.15s, background 0.2s" }}
+      onMouseEnter={e => (e.currentTarget.style.borderColor = T.cardHoverBorder)}
+      onMouseLeave={e => (e.currentTarget.style.borderColor = T.cardBorder)}
+    >
+      <div style={{ fontSize: 11, color: T.idColor, marginBottom: 6 }}>#{task.id}</div>
 
-      {/* Title */}
-      <h3 className="font-semibold text-white mb-3 text-sm line-clamp-2">
+      <h3 style={{ fontWeight: 600, color: T.titleColor, fontSize: 14, lineHeight: 1.4, margin: "0 0 10px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
         {task.title}
       </h3>
 
-      {/* Project */}
-      {task.project && (
-        <div className="text-xs text-gray-400 mb-2">{task.project.name}</div>
-      )}
+      {task.project && <div style={{ fontSize: 12, color: T.projectColor, marginBottom: 8 }}>{task.project.name}</div>}
 
-      {/* Priority Badge */}
-      <div className="mb-3">
-        <Badge variant={priority.color as any} size="sm">
-          {priority.label}
-        </Badge>
+      <div style={{ marginBottom: 10 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: priorityColor, background: `${priorityColor}20`, padding: "2px 8px", borderRadius: 4 }}>
+          {task.priority}
+        </span>
       </div>
 
-      {/* Due Date */}
       {dueDate && (
-        <div
-          className={`text-xs mb-3 ${
-            isOverdue ? "text-red-400" : "text-gray-400"
-          }`}
-        >
+        <div style={{ fontSize: 12, color: isOverdue ? "#EF4444" : T.projectColor, marginBottom: 10 }}>
           Due: {format(dueDate, "MMM d, yyyy")}
         </div>
       )}
 
-      {/* Assignee */}
       {task.assignee && (
-        <div className="text-xs text-gray-300 mb-3">
+        <div style={{ fontSize: 12, color: T.assigneeColor, marginBottom: 10 }}>
           Assigned to: {task.assignee.firstName} {task.assignee.lastName}
         </div>
       )}
 
-      {/* Created By */}
-      <div className="text-xs text-gray-500 border-t border-gray-700 pt-2">
+      <div style={{ fontSize: 11, color: T.createdByColor, borderTop: `1px solid ${T.dividerColor}`, paddingTop: 8 }}>
         by {task.createdBy.firstName} {task.createdBy.lastName}
       </div>
+
+      {!readOnly && (onUpdate || onEdit || onDelete) && (
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+          {onUpdate && nextStatus && (
+            <button
+              onClick={() => onUpdate({ ...task, status: nextStatus as Task["status"] })}
+              style={{ width: "100%", fontSize: 12, fontWeight: 600, background: T.moveBg, color: T.moveColor, border: `1px solid ${T.moveBorder}`, borderRadius: 4, padding: "5px 0", cursor: "pointer", transition: "background 0.15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}
+              onMouseEnter={e => (e.currentTarget.style.background = T.moveHoverBg)}
+              onMouseLeave={e => (e.currentTarget.style.background = T.moveBg)}
+            >
+              → Move to {NEXT_LABEL[task.status]}
+            </button>
+          )}
+          {onEdit && (
+            <button
+              onClick={() => onEdit(task)}
+              style={{ width: "100%", fontSize: 12, fontWeight: 600, background: theme === "dark" ? "rgba(255,171,0,0.12)" : "#FFFBEB", color: theme === "dark" ? "#FFAB00" : "#92400E", border: `1px solid ${theme === "dark" ? "rgba(255,171,0,0.25)" : "#FDE68A"}`, borderRadius: 4, padding: "5px 0", cursor: "pointer", transition: "background 0.15s" }}
+              onMouseEnter={e => (e.currentTarget.style.background = theme === "dark" ? "rgba(255,171,0,0.22)" : "#FEF3C7")}
+              onMouseLeave={e => (e.currentTarget.style.background = theme === "dark" ? "rgba(255,171,0,0.12)" : "#FFFBEB")}
+            >
+              ✏ Edit
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => onDelete(task.id)}
+              style={{ width: "100%", fontSize: 12, background: T.deleteBg, color: T.deleteColor, border: "none", borderRadius: 4, padding: "4px 0", cursor: "pointer", transition: "background 0.15s" }}
+              onMouseEnter={e => (e.currentTarget.style.background = T.deleteHoverBg)}
+              onMouseLeave={e => (e.currentTarget.style.background = T.deleteBg)}
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

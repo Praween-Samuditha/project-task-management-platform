@@ -1,11 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { isAuthenticated } from "@/lib/auth";
 
 export default function Home() {
+  const router = useRouter();
   const atlassianBlue = "#0052CC";
   const atlassianYellow = "#FFAB00";
   const darkBg = "#0B2147";
+
+  useEffect(() => {
+    if (isAuthenticated()) router.replace("/dashboard");
+  }, [router]);
 
   return (
     <div style={{ fontFamily: "'-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", background: darkBg, color: "#fff", minHeight: "100vh", overflowX: "hidden" }}>

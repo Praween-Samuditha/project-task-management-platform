@@ -11,3 +11,6 @@ export const getUsers = (page = 1, limit = 10) =>
 
 export const getUserById = (id: number) =>
   api.get<User>(`/users/${id}`).then((r) => r.data);
+
+export const createUser = (data: { firstName: string; lastName: string; email: string; password: string; roleId: number }) =>
+  api.post<User>("/users", data).then((r) => r.data);

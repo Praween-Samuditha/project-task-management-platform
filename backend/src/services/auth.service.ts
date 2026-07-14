@@ -69,6 +69,10 @@ export const loginUser = async (
     throw new Error("Invalid email or password");
   }
 
+  if (!user.isActive) {
+    throw new Error("Your account has been deactivated. Please contact an administrator.");
+  }
+
   const token = generateToken({
     id: user.id,
     email: user.email,

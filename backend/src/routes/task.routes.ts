@@ -33,7 +33,7 @@ router.put(
 
 router.delete(
   "/:id",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "MANAGER"),
   taskController.deleteTask
 );
 
