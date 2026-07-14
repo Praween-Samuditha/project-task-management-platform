@@ -112,7 +112,7 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
 
 export const getUserById = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = parseInt(req.params.id as string);
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -145,7 +145,7 @@ export const getUserById = async (req: AuthRequest, res: Response) => {
 
 export const updateUserRole = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = parseInt(req.params.id as string);
     const { roleId } = req.body;
 
     if (!roleId) {
@@ -183,7 +183,7 @@ export const updateUserRole = async (req: AuthRequest, res: Response) => {
 
 export const deactivateUser = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = parseInt(req.params.id as string);
 
     // Prevent self-deactivation
     if (req.user.id === userId) {
@@ -203,7 +203,7 @@ export const deactivateUser = async (req: AuthRequest, res: Response) => {
 
 export const activateUser = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = parseInt(req.params.id as string);
 
     await prisma.user.update({
       where: { id: userId },
@@ -215,3 +215,19 @@ export const activateUser = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ message: error.message });
   }
 };
+export const deleteUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id as string);
+
+    if (req.user.id === userId) {
+      return res.status(400).json({ message: "Cannot remove your own account" });
+    }
+
+    await prisma.user.delete({ where: { id: userId } });
+
+    return res.json({ message: "User removed successfully" });
+  } catch {
+    return res.status(400).json({ message: "User could not be removed. Deactivate the user if they own projects or tasks." });
+  }
+};
+

@@ -34,7 +34,8 @@ export const getAllTasks = async (req: AuthRequest, res: Response) => {
     const status = req.query.status as string | undefined;
     const priority = req.query.priority as string | undefined;
 
-    const result = await taskService.getAllTasks({ page, limit, projectId, assigneeId, status, priority });
+    const accessUserId = req.user.role === "ADMIN" ? undefined : req.user.id;
+    const result = await taskService.getAllTasks({ page, limit, projectId, assigneeId, status, priority, accessUserId });
     return res.json(result);
   } catch (error: any) {
     return res.status(400).json({ message: error.message });
@@ -67,16 +68,27 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       if (!project) {
         return res.status(403).json({ message: "You can only update tasks in your own projects" });
       }
+
+      if (validatedData.projectId) {
+        const targetProject = await taskService.getProjectForTask(validatedData.projectId, userId);
+        if (!targetProject) {
+          return res.status(403).json({ message: "You can only move tasks to your own projects" });
+        }
+      }
     }
 
     if (role === "MEMBER") {
-      if (currentTask.assigneeId !== userId) {
-        return res.status(403).json({ message: "You can only update tasks assigned to you" });
+      const project = await taskService.getProjectForTask(currentTask.projectId, userId);
+      if (!project) {
+        return res.status(403).json({ message: "You can only update tasks in projects you belong to" });
       }
+
       delete (validatedData as any).title;
       delete (validatedData as any).description;
+      delete (validatedData as any).priority;
       delete (validatedData as any).assigneeId;
       delete (validatedData as any).dueDate;
+      delete (validatedData as any).projectId;
     }
 
     const task = await taskService.updateTask(id, validatedData);
@@ -109,3 +121,4 @@ export const deleteTask = async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ message: error.message });
   }
 };
+

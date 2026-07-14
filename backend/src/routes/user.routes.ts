@@ -13,5 +13,7 @@ router.get("/:id", authenticate, authorizeRoles("ADMIN"), userController.getUser
 router.put("/:id/role", authenticate, authorizeRoles("ADMIN"), userController.updateUserRole);
 router.put("/:id/deactivate", authenticate, authorizeRoles("ADMIN"), userController.deactivateUser);
 router.put("/:id/activate", authenticate, authorizeRoles("ADMIN"), userController.activateUser);
+router.delete("/:id", authenticate, authorizeRoles("ADMIN"), userController.deleteUser);
 
 export default router;
+

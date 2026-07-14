@@ -14,3 +14,7 @@ export const getUserById = (id: number) =>
 
 export const createUser = (data: { firstName: string; lastName: string; email: string; password: string; roleId: number }) =>
   api.post<User>("/users", data).then((r) => r.data);
+
+export const deleteUser = (id: number) =>
+  api.delete(`/users/${id}`).then((r) => r.data);
+

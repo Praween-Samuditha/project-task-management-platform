@@ -57,3 +57,16 @@ export const removeProjectMember = async (projectId: number, userId: number) => 
     }
   });
 };
+
+export const getProjectForMemberManagement = async (projectId: number, userId: number) => {
+  return prisma.project.findFirst({
+    where: {
+      id: projectId,
+      OR: [
+        { ownerId: userId },
+        { members: { some: { userId } } },
+      ],
+    },
+  });
+};
+

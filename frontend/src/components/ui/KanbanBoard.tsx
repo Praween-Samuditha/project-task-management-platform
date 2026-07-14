@@ -13,6 +13,7 @@ interface KanbanBoardProps {
   onTaskEdit?: (task: Task) => void;
   onTaskDelete?: (id: number) => void;
   readOnly?: boolean;
+  canUpdateTask?: (task: Task) => boolean;
 }
 
 const COLUMNS = [
@@ -31,11 +32,12 @@ const DARK = {
   emptyText: "#4B5563", dragOverBg: "#2C333A",
 };
 
-export default function KanbanBoard({ tasks, isLoading = false, onTaskUpdate, onTaskEdit, onTaskDelete, readOnly = false }: KanbanBoardProps) {
+export default function KanbanBoard({ tasks, isLoading = false, onTaskUpdate, onTaskEdit, onTaskDelete, readOnly = false, canUpdateTask }: KanbanBoardProps) {
   const { theme } = useTheme();
   const T = theme === "dark" ? DARK : LIGHT;
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const canMoveTask = (task: Task) => !readOnly && !!onTaskUpdate && (canUpdateTask ? canUpdateTask(task) : true);
 
   const groupedTasks = COLUMNS.reduce((acc, col) => {
     acc[col.id] = tasks.filter(t => t.status === col.id);
@@ -45,7 +47,7 @@ export default function KanbanBoard({ tasks, isLoading = false, onTaskUpdate, on
   const handleDrop = (e: React.DragEvent, newStatus: string) => {
     e.preventDefault();
     setDragOverCol(null);
-    if (draggedTask) { onTaskUpdate?.({ ...draggedTask, status: newStatus as Task["status"] }); setDraggedTask(null); }
+    if (draggedTask && canMoveTask(draggedTask)) { onTaskUpdate?.({ ...draggedTask, status: newStatus as Task["status"] }); setDraggedTask(null); }
   };
 
   if (isLoading) {
@@ -67,11 +69,14 @@ export default function KanbanBoard({ tasks, isLoading = false, onTaskUpdate, on
             onDrop={!readOnly ? (e) => handleDrop(e, col.id) : undefined}
           >
             {groupedTasks[col.id]?.length > 0 ? (
-              groupedTasks[col.id].map(task => (
-                <div key={task.id} draggable={!readOnly} onDragStart={!readOnly ? () => setDraggedTask(task) : undefined} style={{ opacity: draggedTask?.id === task.id ? 0.5 : 1 }}>
-                  <KanbanCard task={task} onUpdate={!readOnly ? onTaskUpdate : undefined} onEdit={!readOnly ? onTaskEdit : undefined} onDelete={!readOnly ? onTaskDelete : undefined} readOnly={readOnly} />
-                </div>
-              ))
+              groupedTasks[col.id].map(task => {
+                const canMove = canMoveTask(task);
+                return (
+                  <div key={task.id} draggable={canMove} onDragStart={canMove ? () => setDraggedTask(task) : undefined} style={{ opacity: draggedTask?.id === task.id ? 0.5 : 1 }}>
+                    <KanbanCard task={task} onUpdate={canMove ? onTaskUpdate : undefined} onEdit={!readOnly ? onTaskEdit : undefined} onDelete={!readOnly ? onTaskDelete : undefined} readOnly={readOnly && !canMove} />
+                  </div>
+                );
+              })
             ) : (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 384 }}>
                 <p style={{ fontSize: 14, color: T.emptyText }}>No tasks</p>
@@ -83,3 +88,4 @@ export default function KanbanBoard({ tasks, isLoading = false, onTaskUpdate, on
     </div>
   );
 }
+

@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import AppLayout from "@/components/layout/AppLayout";
 import PermissionRoute from "@/components/PermissionRoute";
 import api from "@/services/api";
-import { createUser } from "@/services/user.service";
+import { createUser, deleteUser } from "@/services/user.service";
 import { useTheme } from "@/components/layout/Navbar";
 
 interface User {
@@ -127,6 +127,8 @@ export default function UsersPage() {
   const [actionUser, setActionUser] = useState<User | null>(null);
   const [actionType, setActionType] = useState<"activate" | "deactivate" | null>(null);
   const [actioning, setActioning] = useState(false);
+  const [removeUser, setRemoveUser] = useState<User | null>(null);
+  const [removing, setRemoving] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createForm, setCreateForm] = useState({ firstName: "", lastName: "", email: "", password: "", roleId: 3 });
   const [creating, setCreating] = useState(false);
@@ -182,6 +184,20 @@ export default function UsersPage() {
       toast.error(error.response?.data?.message || "Failed to update user");
     } finally {
       setActioning(false);
+    }
+  };
+  const handleRemoveUser = async () => {
+    if (!removeUser) return;
+    setRemoving(true);
+    try {
+      await deleteUser(removeUser.id);
+      toast.success("User removed successfully");
+      setRemoveUser(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to remove user");
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -306,6 +322,14 @@ export default function UsersPage() {
                           >
                             {user.isActive ? "Deactivate" : "Activate"}
                           </button>
+                          <button
+                            onClick={() => setRemoveUser(user)}
+                            style={{ background: T.btnBg, border: "none", color: T.btnColor, cursor: "pointer", borderRadius: 3, padding: "4px 8px", fontSize: 12 }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#FF563020"; (e.currentTarget as HTMLButtonElement).style.color = "#FF5630"; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = T.btnBg; (e.currentTarget as HTMLButtonElement).style.color = T.btnColor; }}
+                          >
+                            Remove
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -400,6 +424,24 @@ export default function UsersPage() {
           </div>
         )}
 
+        {/* Remove User Confirmation Modal */}
+        {removeUser && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setRemoveUser(null)} />
+            <div style={{ position: "relative", background: T.modalBg, border: `1px solid ${T.modalBorder}`, borderRadius: 6, width: 400, padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: T.modalTitle, margin: "0 0 8px" }}>Remove User?</h3>
+              <p style={{ fontSize: 13, color: T.labelColor, margin: "0 0 20px" }}>
+                Remove {removeUser.firstName} {removeUser.lastName}? This will permanently delete the user account.
+              </p>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                <button onClick={() => setRemoveUser(null)} style={{ padding: "8px 16px", borderRadius: 3, border: `1px solid ${T.cancelBorder}`, background: "transparent", color: T.cancelColor, cursor: "pointer", fontSize: 14 }}>Cancel</button>
+                <button onClick={handleRemoveUser} disabled={removing} style={{ padding: "8px 16px", borderRadius: 3, border: "none", background: removing ? "#42526E" : "#DE350B", color: "#fff", cursor: removing ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600 }}>
+                  {removing ? "Removing..." : "Remove"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Action Confirmation Modal */}
         {actionUser && actionType && (
           <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -426,3 +468,4 @@ export default function UsersPage() {
     </PermissionRoute>
   );
 }
+

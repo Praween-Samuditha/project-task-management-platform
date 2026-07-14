@@ -68,6 +68,7 @@ export default function ProjectsPage() {
   const { current: currentWs, currentProjectIds, addProjectToWorkspace, removeProjectFromWorkspace } = useWorkspace();
   const canCreateProject = ["ADMIN", "MANAGER"].includes(role ?? "");
   const canManageMembers = ["ADMIN", "MANAGER"].includes(role ?? "");
+  const canRemoveMembers = role === "ADMIN";
   const canEditProject = ["ADMIN", "MANAGER"].includes(role ?? "");
   const canDeleteProject = role === "ADMIN";
   const [projects, setProjects] = useState<Project[]>([]);
@@ -352,7 +353,7 @@ export default function ProjectsPage() {
                         <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{member.firstName} {member.lastName}</div>
                         <div style={{ fontSize: 12, color: "#8A94A5" }}>{member.email}</div>
                       </div>
-                      {canManageMembers && (
+                      {canRemoveMembers && (
                         <button onClick={() => removeMember(member.id)} disabled={memberLoading} style={{ padding: "8px 12px", borderRadius: 6, border: "none", background: "#DE350B", color: "#fff", cursor: memberLoading ? "not-allowed" : "pointer" }}>
                           Remove
                         </button>
@@ -386,3 +387,4 @@ export default function ProjectsPage() {
     </AppLayout>
   );
 }
+

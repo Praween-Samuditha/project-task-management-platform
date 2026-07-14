@@ -66,7 +66,7 @@ function Modal({ open, onClose, title, children, T }: { open: boolean; onClose: 
 }
 
 export default function TasksPage() {
-  const { role, user } = useAuth();
+  const { role } = useAuth();
   const { theme } = useTheme();
   const T = theme === "dark" ? DARK : LIGHT;
 
@@ -75,7 +75,8 @@ export default function TasksPage() {
   const urlProjectName = searchParams.get("projectName") ?? "";
 
   const canCreateTask = ["ADMIN", "MANAGER"].includes(role ?? "");
-  const isReadOnly = role === "MEMBER";
+  const canManageTask = ["ADMIN", "MANAGER"].includes(role ?? "");
+  const canChangeTaskProcess = () => canManageTask || role === "MEMBER";
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -201,10 +202,11 @@ export default function TasksPage() {
           <KanbanBoard
             tasks={tasks}
             isLoading={loading}
-            readOnly={isReadOnly}
-            onTaskUpdate={!isReadOnly ? handleTaskUpdate : undefined}
-            onTaskEdit={!isReadOnly ? openEdit : undefined}
-            onTaskDelete={!isReadOnly ? (id) => { const task = tasks.find(t => t.id === id); if (task) setDeleteTarget(task); } : undefined}
+            readOnly={false}
+            canUpdateTask={canChangeTaskProcess}
+            onTaskUpdate={handleTaskUpdate}
+            onTaskEdit={canManageTask ? openEdit : undefined}
+            onTaskDelete={canManageTask ? (id) => { const task = tasks.find(t => t.id === id); if (task) setDeleteTarget(task); } : undefined}
           />
         </div>
       </div>
@@ -282,3 +284,4 @@ export default function TasksPage() {
     </AppLayout>
   );
 }
+

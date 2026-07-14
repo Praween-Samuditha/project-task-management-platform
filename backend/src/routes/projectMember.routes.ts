@@ -21,8 +21,9 @@ router.get(
 router.delete(
   "/:id/members/:userId",
   authenticate,
-  authorizeRoles("ADMIN", "MANAGER"),
+  authorizeRoles("ADMIN"),
   projectMemberController.removeMember
 );
 
 export default router;
+

@@ -14,8 +14,8 @@ export const createTask = async (data: {
   if (!project) throw new Error("Project not found");
 
   if (data.assigneeId) {
-    const user = await prisma.user.findUnique({ where: { id: data.assigneeId } });
-    if (!user) throw new Error("Assigned user not found");
+    const assignee = await getProjectForTask(data.projectId, data.assigneeId);
+    if (!assignee) throw new Error("Assigned user must belong to this project");
   }
 
   return prisma.task.create({
@@ -44,6 +44,7 @@ export const getAllTasks = async (filters: {
   priority?: string;
   page?: number;
   limit?: number;
+  accessUserId?: number;
 }) => {
   const page = filters.page ?? 1;
   const limit = filters.limit ?? 10;
@@ -54,6 +55,14 @@ export const getAllTasks = async (filters: {
   if (filters.assigneeId) where.assigneeId = filters.assigneeId;
   if (filters.status) where.status = filters.status;
   if (filters.priority) where.priority = filters.priority;
+  if (filters.accessUserId) {
+    where.project = {
+      OR: [
+        { ownerId: filters.accessUserId },
+        { members: { some: { userId: filters.accessUserId } } },
+      ],
+    };
+  }
 
   const [tasks, total] = await Promise.all([
     prisma.task.findMany({
@@ -101,8 +110,17 @@ export const updateTask = async (
     priority?: string;
     dueDate?: string | null;
     assigneeId?: number | null;
+    projectId?: number;
   }
 ) => {
+  const existingTask = await prisma.task.findUnique({ where: { id }, select: { projectId: true } });
+  if (!existingTask) throw new Error("Task not found");
+
+  if (data.assigneeId) {
+    const assignee = await getProjectForTask(data.projectId ?? existingTask.projectId, data.assigneeId);
+    if (!assignee) throw new Error("Assigned user must belong to this project");
+  }
+
   return prisma.task.update({
     where: { id },
     data: {
@@ -133,3 +151,4 @@ export const getProjectForTask = async (projectId: number, userId: number) => {
     },
   });
 };
+

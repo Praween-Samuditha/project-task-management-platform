@@ -7,7 +7,16 @@ export const addMember = async (req: AuthRequest, res: Response) => {
   try {
     const projectId = parseInt(req.params.id as string);
     const validatedData = addMemberSchema.parse(req.body);
-    
+    const userId = req.user.id;
+    const role = req.user.role;
+
+    if (role === "MANAGER") {
+      const project = await projectMemberService.getProjectForMemberManagement(projectId, userId);
+      if (!project) {
+        return res.status(403).json({ message: "You can only assign members to your own projects" });
+      }
+    }
+
     await projectMemberService.addProjectMember(projectId, validatedData.userId);
     return res.status(201).json({ message: "Member added successfully" });
   } catch (error: any) {
@@ -38,3 +47,4 @@ export const removeMember = async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ message: "Member could not be removed or doesn't exist" });
   }
 };
+
