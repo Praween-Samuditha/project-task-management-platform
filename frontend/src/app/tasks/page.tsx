@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -65,7 +65,7 @@ function Modal({ open, onClose, title, children, T }: { open: boolean; onClose: 
   );
 }
 
-export default function TasksPage() {
+function TasksContent() {
   const { role } = useAuth();
   const { theme } = useTheme();
   const T = theme === "dark" ? DARK : LIGHT;
@@ -83,7 +83,6 @@ export default function TasksPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [filterStatus, setFilterStatus] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
   const [filterProject, setFilterProject] = useState<number | undefined>(urlProjectId);
@@ -102,7 +101,7 @@ export default function TasksPage() {
   const fetchTasks = useCallback(() => {
     setLoading(true);
     getTasks({ page, limit: 20, status: filterStatus || undefined, priority: filterPriority || undefined, projectId: filterProject })
-      .then((data) => { setTasks(data.tasks ?? []); setTotalPages(data.pagination?.totalPages ?? 1); })
+      .then((data) => { setTasks(data.tasks ?? []); })
       .catch(() => toast.error("Failed to load tasks"))
       .finally(() => setLoading(false));
   }, [page, filterStatus, filterPriority, filterProject]);
@@ -284,4 +283,10 @@ export default function TasksPage() {
     </AppLayout>
   );
 }
-
+export default function TasksPage() {
+  return (
+    <Suspense fallback={null}>
+      <TasksContent />
+    </Suspense>
+  );
+}

@@ -36,7 +36,6 @@ export default function LoginPage() {
       setToken(res.data.token);
       setUser(res.data.user);
       toast.success("Welcome back!");
-      const role = res.data.user?.role?.name ?? res.data.user?.role;
       router.push("/dashboard");
     } catch (e: any) {
       toast.error(e.response?.data?.message || "Invalid credentials");

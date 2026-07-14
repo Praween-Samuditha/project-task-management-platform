@@ -23,7 +23,6 @@ type FormData = z.infer<typeof schema>;
 const STATUS_OPTIONS = ["ACTIVE", "PLANNING", "COMPLETED"];
 
 const accentBlue = "#0052CC";
-const darkCard = { background: "#22272B", border: "1px solid #2C333A", borderRadius: 4 };
 const inputSty: React.CSSProperties = {
   width: "100%", height: 40, background: "#161A1D",
   border: "2px solid #2C333A", borderRadius: 3,
@@ -31,21 +30,6 @@ const inputSty: React.CSSProperties = {
   fontFamily: "inherit", transition: "border-color 0.2s"
 };
 const labelSty: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 600, color: "#8A94A5", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" };
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { bg: string; color: string; label: string }> = {
-    ACTIVE: { bg: "rgba(54,179,126,0.15)", color: "#36B37E", label: "Active" },
-    PLANNING: { bg: "rgba(0,82,204,0.15)", color: "#4C9AFF", label: "Planning" },
-    COMPLETED: { bg: "rgba(137,147,164,0.15)", color: "#8993A4", label: "Completed" },
-  };
-  const s = map[status] ?? map.PLANNING;
-  return (
-    <span style={{ background: s.bg, color: s.color, fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 3, display: "inline-flex", alignItems: "center", gap: 5 }}>
-      <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.color, display: "inline-block" }} />
-      {s.label}
-    </span>
-  );
-}
 
 function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   if (!open) return null;
@@ -73,11 +57,9 @@ export default function ProjectsPage() {
   const canDeleteProject = role === "ADMIN";
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [search, setSearch] = useState("");
+  const page = 1;
+  const search = "";
   const [showMyProjects, setShowMyProjects] = useState(role === "MANAGER");
-  const [searchInput, setSearchInput] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [membersModalOpen, setMembersModalOpen] = useState(false);
@@ -96,7 +78,7 @@ export default function ProjectsPage() {
     setLoading(true);
     const memberId = showMyProjects && user?.id ? user.id : undefined;
     getProjects(page, 100, search, memberId)
-      .then((data) => { setProjects(data.projects ?? []); setTotalPages(data.pagination?.totalPages ?? 1); })
+      .then((data) => { setProjects(data.projects ?? []); })
       .catch(() => toast.error("Failed to load projects"))
       .finally(() => setLoading(false));
   }, [page, search, showMyProjects, user?.id]);
@@ -217,7 +199,7 @@ export default function ProjectsPage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#8A94A5", fontSize: 13 }}>
-              <input type="checkbox" checked={showMyProjects} onChange={(e) => setShowMyProjects(e.target.checked)} style={{ accent: accentBlue }} />
+              <input type="checkbox" checked={showMyProjects} onChange={(e) => setShowMyProjects(e.target.checked)} style={{ accentColor: accentBlue }} />
               My projects only
             </label>
             {canCreateProject && (

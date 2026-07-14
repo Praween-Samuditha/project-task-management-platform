@@ -177,7 +177,7 @@ const IconAlert = ({ color }: { color: string }) => (
 );
 
 export default function DashboardPage() {
-  const { user, role } = useAuth();
+  const { user } = useAuth();
   const { theme } = useTheme();
   const T = theme === "dark" ? DARK : LIGHT;
   const { current: currentWs, currentProjectIds } = useWorkspace();
@@ -205,7 +205,6 @@ export default function DashboardPage() {
     ]).finally(() => setLoading(false));
   }, [user?.id]);
 
-  const completedProjects = projects.filter(p => p.status === "COMPLETED").length;
 
   // filter to workspace projects only
   const wsProjects = currentProjectIds.length > 0

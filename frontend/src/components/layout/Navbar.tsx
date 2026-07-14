@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, createContext, useContext, useCallback } from "react";
-import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 
 // ── Theme context ─────────────────────────────────────────────────────────────
@@ -77,12 +76,6 @@ const DARK = {
   toggleIcon:  "#8A94A5",
 };
 
-const PAGE_TITLES: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/projects":  "Projects",
-  "/tasks":     "Tasks",
-  "/users":     "Members",
-};
 
 // ── Sun icon ──────────────────────────────────────────────────────────────────
 function SunIcon() {
@@ -112,7 +105,6 @@ function MoonIcon() {
 
 // ── Navbar ────────────────────────────────────────────────────────────────────
 export default function Navbar() {
-  const pathname  = usePathname();
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const T = theme === "dark" ? DARK : LIGHT;
@@ -120,7 +112,6 @@ export default function Navbar() {
   const [profileOpen, setProfileOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  const title    = Object.entries(PAGE_TITLES).find(([key]) => pathname.startsWith(key))?.[1] ?? "FlowPilot";
   const initials = user ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() : "?";
 
   useEffect(() => {

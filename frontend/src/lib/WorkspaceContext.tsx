@@ -104,7 +104,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setWorkspaces(next);
     localStorage.setItem(WS_KEY, JSON.stringify(next));
     // remove its project map
-    const { [id]: _, ...restProj } = wsProjects;
+    const restProj = Object.fromEntries(Object.entries(wsProjects).filter(([wsId]) => wsId !== id));
     saveWsProjects(restProj);
     // if deleting current, switch to first remaining
     if (currentId === id) switchWorkspace(next[0].id);
