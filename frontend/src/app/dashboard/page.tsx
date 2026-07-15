@@ -550,7 +550,7 @@ export default function DashboardPage() {
       {/* Members Modal */}
       {membersModalOpen && selectedProject && (
         <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ position: "absolute", inset: 0, background: T.modalOverlay || "rgba(0,0,0,0.7)" }} onClick={() => setMembersModalOpen(false)} />
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)" }} onClick={() => setMembersModalOpen(false)} />
           <div style={{ position: "relative", background: T.white, border: `1px solid ${T.border}`, borderRadius: 6, width: "100%", maxWidth: 540, padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.5)", maxHeight: "90vh", overflowY: "auto" }}>
             <h3 style={{ fontSize: 16, fontWeight: 600, color: T.textPrimary, margin: "0 0 16px" }}>Project Members</h3>
             <div style={{ marginBottom: 16 }}>
