@@ -1,4 +1,5 @@
 import prisma from "../config/prisma";
+import * as notificationService from "./notification.service";
 
 export const createTask = async (data: {
   title: string;
@@ -9,16 +10,17 @@ export const createTask = async (data: {
   projectId: number;
   assigneeId?: number;
   createdById: number;
+  userRole?: string;
 }) => {
   const project = await prisma.project.findUnique({ where: { id: data.projectId } });
   if (!project) throw new Error("Project not found");
 
-  if (data.assigneeId) {
+  if (data.assigneeId && data.userRole !== "ADMIN" && data.userRole !== "MANAGER") {
     const assignee = await getProjectForTask(data.projectId, data.assigneeId);
     if (!assignee) throw new Error("Assigned user must belong to this project");
   }
 
-  return prisma.task.create({
+  const task = await prisma.task.create({
     data: {
       title: data.title,
       description: data.description,
@@ -35,6 +37,16 @@ export const createTask = async (data: {
       createdBy: { select: { id: true, firstName: true, lastName: true } },
     },
   });
+
+  await notificationService.createTaskAssignmentNotification({
+    userId: task.assigneeId,
+    taskId: task.id,
+    taskTitle: task.title,
+    projectName: task.project.name,
+    assignedById: data.createdById,
+  });
+
+  return task;
 };
 
 export const getAllTasks = async (filters: {
@@ -56,12 +68,11 @@ export const getAllTasks = async (filters: {
   if (filters.status) where.status = filters.status;
   if (filters.priority) where.priority = filters.priority;
   if (filters.accessUserId) {
-    where.project = {
-      OR: [
-        { ownerId: filters.accessUserId },
-        { members: { some: { userId: filters.accessUserId } } },
-      ],
-    };
+    where.OR = [
+      { project: { ownerId: filters.accessUserId } },
+      { project: { members: { some: { userId: filters.accessUserId } } } },
+      { assigneeId: filters.accessUserId },
+    ];
   }
 
   const [tasks, total] = await Promise.all([
@@ -111,20 +122,24 @@ export const updateTask = async (
     dueDate?: string | null;
     assigneeId?: number | null;
     projectId?: number;
+    updatedById: number;
+    userRole?: string;
   }
 ) => {
-  const existingTask = await prisma.task.findUnique({ where: { id }, select: { projectId: true } });
+  const existingTask = await prisma.task.findUnique({ where: { id }, select: { projectId: true, assigneeId: true } });
   if (!existingTask) throw new Error("Task not found");
 
-  if (data.assigneeId) {
+  if (data.assigneeId && data.userRole !== "ADMIN" && data.userRole !== "MANAGER") {
     const assignee = await getProjectForTask(data.projectId ?? existingTask.projectId, data.assigneeId);
     if (!assignee) throw new Error("Assigned user must belong to this project");
   }
 
-  return prisma.task.update({
+  const { updatedById, userRole, ...updateData } = data;
+
+  const task = await prisma.task.update({
     where: { id },
     data: {
-      ...data,
+      ...updateData,
       dueDate: data.dueDate ? new Date(data.dueDate) : data.dueDate === null ? null : undefined,
     },
     include: {
@@ -133,6 +148,18 @@ export const updateTask = async (
       createdBy: { select: { id: true, firstName: true, lastName: true } },
     },
   });
+
+  if (data.assigneeId && data.assigneeId !== existingTask.assigneeId) {
+    await notificationService.createTaskAssignmentNotification({
+      userId: task.assigneeId,
+      taskId: task.id,
+      taskTitle: task.title,
+      projectName: task.project.name,
+      assignedById: updatedById,
+    });
+  }
+
+  return task;
 };
 
 export const deleteTask = async (id: number) => {

@@ -1,4 +1,4 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import * as projectController from "../controllers/project.controller";
 import { authenticate } from "../middleware/auth.middleware";
 import { authorizeRoles } from "../middleware/rbac.middleware";
@@ -26,7 +26,7 @@ router.get(
 
 router.put(
   "/:id",
-  authorizeRoles("ADMIN", "MANAGER"),
+  authorizeRoles("ADMIN"),
   projectController.updateProject
 );
 
@@ -37,3 +37,4 @@ router.delete(
 );
 
 export default router;
+

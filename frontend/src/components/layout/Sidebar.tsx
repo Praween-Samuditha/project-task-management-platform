@@ -35,7 +35,6 @@ const NAV_BY_ROLE: Record<string, { href: string; label: string; icon: React.Rea
   ],
   MANAGER: [
     { href: "/dashboard", label: "Dashboard", icon: <IconDashboard /> },
-    { href: "/users",     label: "Members",   icon: <IconMembers /> },
   ],
   MEMBER: [
     { href: "/dashboard", label: "Dashboard", icon: <IconDashboard /> },

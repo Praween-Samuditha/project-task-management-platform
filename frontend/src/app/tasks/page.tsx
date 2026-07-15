@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -92,11 +92,48 @@ function TasksContent() {
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     mode: "onBlur",
     defaultValues: { projectId: "", status: "TODO", priority: "MEDIUM" },
   });
+
+  const selectedProjectId = watch("projectId");
+  const validAssignees = useMemo(() => {
+    if (!selectedProjectId) return [];
+
+    if (canCreateTask && users.length > 0) {
+      return users.map(u => ({
+        id: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        role: u.role.name
+      }));
+    }
+
+    const project = projects.find(p => p.id === Number(selectedProjectId));
+    if (!project) return [];
+    
+    const assignees = new Map();
+    assignees.set(project.owner.id, {
+      id: project.owner.id,
+      firstName: project.owner.firstName,
+      lastName: project.owner.lastName,
+      role: "OWNER"
+    });
+
+    if (project.members) {
+      project.members.forEach(m => {
+        assignees.set(m.user.id, {
+          id: m.user.id,
+          firstName: m.user.firstName,
+          lastName: m.user.lastName,
+          role: m.user.role?.name || "MEMBER"
+        });
+      });
+    }
+    return Array.from(assignees.values());
+  }, [selectedProjectId, projects, canCreateTask, users]);
 
   const fetchTasks = useCallback(() => {
     setLoading(true);
@@ -247,12 +284,12 @@ function TasksContent() {
               <input type="date" style={{ ...inputSty, colorScheme: theme === "dark" ? "dark" : "light" }} {...register("dueDate")} onFocus={e => (e.target.style.borderColor = T.accent)} onBlur={e => (e.target.style.borderColor = T.inputBorder)} />
             </div>
           </div>
-          {canCreateTask && users.length > 0 && (
+          {canCreateTask && (
             <div>
               <label style={labelSty}>Assignee</label>
-              <select style={{ ...inputSty }} {...register("assigneeId")} onFocus={e => (e.target.style.borderColor = T.accent)} onBlur={e => (e.target.style.borderColor = T.inputBorder)}>
-                <option value="">Unassigned</option>
-                {users.map(u => <option key={u.id} value={u.id}>{u.firstName} {u.lastName} ({u.role.name})</option>)}
+              <select style={{ ...inputSty }} disabled={!selectedProjectId} {...register("assigneeId")} onFocus={e => (e.target.style.borderColor = T.accent)} onBlur={e => (e.target.style.borderColor = T.inputBorder)}>
+                <option value="">{selectedProjectId ? "Unassigned" : "Select a project first"}</option>
+                {validAssignees.map(u => <option key={u.id} value={u.id}>{u.firstName} {u.lastName} ({u.role})</option>)}
               </select>
             </div>
           )}

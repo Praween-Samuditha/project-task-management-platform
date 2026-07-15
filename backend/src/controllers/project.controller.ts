@@ -23,10 +23,7 @@ export const getProjects = async (req: AuthRequest, res: Response) => {
     const userId = req.user.id;
     const role = req.user.role;
 
-    // MANAGER always sees only their own projects; ADMIN sees all unless memberId is specified
-    const memberId = role === "MANAGER"
-      ? userId
-      : req.query.memberId ? parseInt(req.query.memberId as string) : undefined;
+    const memberId = req.query.memberId ? parseInt(req.query.memberId as string) : undefined;
 
     const result = await projectService.getProjects(page, limit, memberId);
     return res.json(result);
@@ -51,18 +48,6 @@ export const updateProject = async (req: AuthRequest, res: Response) => {
   try {
     const id = parseInt(req.params.id as string);
     const validatedData = updateProjectSchema.parse(req.body);
-    const userId = req.user.id;
-    const role = req.user.role;
-
-    // MANAGER can only update projects they own or are a member of
-    if (role === "MANAGER") {
-      const project = await projectService.getProjectById(id);
-      if (!project) return res.status(404).json({ message: "Project not found" });
-      const isMember = project.members?.some((m: { user?: { id: number } }) => m.user?.id === userId);
-      if (project.ownerId !== userId && !isMember) {
-        return res.status(403).json({ message: "You can only update your own projects" });
-      }
-    }
 
     const project = await projectService.updateProject(id, validatedData);
     return res.json(project);

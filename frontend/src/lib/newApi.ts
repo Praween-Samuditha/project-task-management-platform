@@ -3,7 +3,7 @@
 // lib/newApi.ts — fetch wrapper for the new backend (port 4000)
 // Attaches Bearer token, retries once on 401 via /auth/refresh
 
-const BASE = "http://localhost:4000/api";
+const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 const STORAGE_ACCESS  = "np_access";
 const STORAGE_REFRESH = "np_refresh";

@@ -39,7 +39,7 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
       <div style={{ position: "relative", background: "#22272B", border: "1px solid #2C333A", borderRadius: 6, width: "100%", maxWidth: 480, padding: 32, boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
         <h3 style={{ fontSize: 16, fontWeight: 600, color: "#DFE1E6", margin: "0 0 24px" }}>{title}</h3>
         {children}
-        <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", color: "#8A94A5", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>×</button>
+        <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", color: "#8A94A5", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>Ã—</button>
       </div>
     </div>
   );
@@ -49,17 +49,17 @@ export default function ProjectsPage() {
   const { role, user } = useAuth();
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const { current: currentWs, currentProjectIds, addProjectToWorkspace, removeProjectFromWorkspace } = useWorkspace();
+  const { current: currentWs, currentProjectIds, addProjectToWorkspace, removeProjectFromWorkspace, wsProjectsMap } = useWorkspace();
   const canCreateProject = ["ADMIN", "MANAGER"].includes(role ?? "");
   const canManageMembers = ["ADMIN", "MANAGER"].includes(role ?? "");
   const canRemoveMembers = role === "ADMIN";
-  const canEditProject = ["ADMIN", "MANAGER"].includes(role ?? "");
+  const canEditProject = role === "ADMIN";
   const canDeleteProject = role === "ADMIN";
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const page = 1;
   const search = "";
-  const [showMyProjects, setShowMyProjects] = useState(role === "MANAGER");
+  const [showMyProjects, setShowMyProjects] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [membersModalOpen, setMembersModalOpen] = useState(false);
@@ -175,10 +175,11 @@ export default function ProjectsPage() {
     finally { setDeleting(false); }
   };
 
-  // filter to only projects in current workspace
-  const wsProjects = currentProjectIds.length > 0
-    ? projects.filter(p => currentProjectIds.includes(p.id))
-    : [];
+  // filter to only projects in current workspace or unassigned projects
+  const allAssignedIds = Object.values(wsProjectsMap).flat();
+  const wsProjects = projects.filter(p => 
+    currentProjectIds.includes(p.id) || !allAssignedIds.includes(p.id)
+  );
 
   const textPrimary = isDark ? "#DFE1E6" : "#1A1D23";
   const textSecondary = isDark ? "#8A94A5" : "#6B7280";
@@ -223,7 +224,7 @@ export default function ProjectsPage() {
             background: emptyBg, border: `2px dashed ${emptyBorder}`, borderRadius: 16,
             padding: "64px 32px", textAlign: "center",
           }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>📂</div>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>ðŸ“‚</div>
             <h3 style={{ fontSize: 18, fontWeight: 700, color: textPrimary, margin: "0 0 8px" }}>
               No projects in this workspace
             </h3>
@@ -325,7 +326,7 @@ export default function ProjectsPage() {
               <div style={{ fontSize: 12, color: "#8A94A5", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Current Members</div>
               <div style={{ display: "grid", gap: 12 }}>
                 {memberLoading ? (
-                  <div style={{ color: "#8A94A5" }}>Loading members…</div>
+                  <div style={{ color: "#8A94A5" }}>Loading membersâ€¦</div>
                 ) : projectMembers.length === 0 ? (
                   <div style={{ color: "#8A94A5" }}>No members assigned.</div>
                 ) : (

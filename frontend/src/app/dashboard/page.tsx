@@ -2,11 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import toast from "react-hot-toast";
 import AppLayout from "@/components/layout/AppLayout";
 import api from "@/services/api";
-import { DashboardStats, Task, Project } from "@/types";
+import { DashboardStats, Task, Project, User } from "@/types";
 import { getTasks } from "@/services/task.service";
-import { getProjects } from "@/services/project.service";
+import { getProjects, updateProject, deleteProject, getProjectMembers, addProjectMember, removeProjectMember } from "@/services/project.service";
+import { getUsers } from "@/services/user.service";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/components/layout/Navbar";
 import { useWorkspace } from "@/lib/WorkspaceContext";
@@ -94,7 +99,37 @@ function ProgressBar({ value, T }: { value: number; T: Tokens }) {
   );
 }
 
-function ProjectCard({ project, T }: { project: Project; T: Tokens }) {
+const projectSchema = z.object({
+  name: z.string().min(3, "Name must be at least 3 characters"),
+  description: z.string().optional(),
+  status: z.enum(["ACTIVE", "PLANNING", "COMPLETED"]).optional(),
+});
+type ProjectFormData = z.infer<typeof projectSchema>;
+const STATUS_OPTIONS = ["ACTIVE", "PLANNING", "COMPLETED"];
+
+const inputSty: React.CSSProperties = {
+  width: "100%", height: 40, background: "#161A1D",
+  border: "2px solid #2C333A", borderRadius: 3,
+  color: "#DFE1E6", fontSize: 14, padding: "0 12px", outline: "none",
+  fontFamily: "inherit", transition: "border-color 0.2s"
+};
+const labelSty: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 600, color: "#8A94A5", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" };
+
+function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+  if (!open) return null;
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)" }} onClick={onClose} />
+      <div style={{ position: "relative", background: "#22272B", border: "1px solid #2C333A", borderRadius: 6, width: "100%", maxWidth: 480, padding: 32, boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+        <h3 style={{ fontSize: 16, fontWeight: 600, color: "#DFE1E6", margin: "0 0 24px" }}>{title}</h3>
+        {children}
+        <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", color: "#8A94A5", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>×</button>
+      </div>
+    </div>
+  );
+}
+
+function ProjectCard({ project, T, canEdit, canDelete, canManageMembers, onEdit, onDelete, onMembers }: { project: Project; T: Tokens; canEdit?: boolean; canDelete?: boolean; canManageMembers?: boolean; onEdit?: (p: Project) => void; onDelete?: (p: Project) => void; onMembers?: (p: Project) => void; }) {
   const memberCount = project._count?.members ?? 0;
   const dueDate = new Date(project.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   const progress = 0;
@@ -117,6 +152,26 @@ function ProjectCard({ project, T }: { project: Project; T: Tokens }) {
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginLeft: 16 }}>
             <StatusBadge status={project.status} T={T} />
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: project.status === "ACTIVE" ? T.amber : "#D1D5DB" }} />
+            
+            {(canEdit || canDelete || canManageMembers) && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 8 }}>
+                {canManageMembers && onMembers && (
+                  <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMembers(project); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.textSecondary, padding: 4 }} title="Manage Members">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  </button>
+                )}
+                {canEdit && onEdit && (
+                  <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(project); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.textSecondary, padding: 4 }} title="Edit Project">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                )}
+                {canDelete && onDelete && (
+                  <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(project); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.red, padding: 4 }} title="Delete Project">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div style={{ display: "flex", gap: 20, margin: "12px 0", fontSize: 12, color: T.textSecondary }}>
@@ -177,18 +232,125 @@ const IconAlert = ({ color }: { color: string }) => (
 );
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { theme } = useTheme();
   const T = theme === "dark" ? DARK : LIGHT;
-  const { current: currentWs, currentProjectIds } = useWorkspace();
+  const { current: currentWs, currentProjectIds, removeProjectFromWorkspace, wsProjectsMap } = useWorkspace();
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [myTasks, setMyTasks] = useState<Task[]>([]);
   const [overdueTasks, setOverdueTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editProject, setEditProject] = useState<Project | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const canEditProject = role === "ADMIN";
+  const canDeleteProject = role === "ADMIN";
+  const canManageMembers = ["ADMIN", "MANAGER"].includes(role ?? "");
+  const canRemoveMembers = role === "ADMIN";
+
+  const [membersModalOpen, setMembersModalOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projectMembers, setProjectMembers] = useState<User[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<User[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<number | "">("");
+  const [memberLoading, setMemberLoading] = useState(false);
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<ProjectFormData>({ resolver: zodResolver(projectSchema) });
 
   const firstName = user?.firstName ?? "there";
+
+  const openEdit = (p: Project) => { 
+    setEditProject(p); 
+    reset({ name: p.name, description: p.description ?? "", status: (p.status as "ACTIVE" | "PLANNING" | "COMPLETED") }); 
+    setModalOpen(true); 
+  };
+
+  const loadProjectMembers = async (projectId: number) => {
+    setMemberLoading(true);
+    try {
+      const members = await getProjectMembers(projectId);
+      setProjectMembers(members);
+    } catch {
+      toast.error("Failed to load project members");
+    } finally {
+      setMemberLoading(false);
+    }
+  };
+
+  const openMembers = (p: Project) => {
+    setSelectedProject(p);
+    setMembersModalOpen(true);
+    setSelectedUserId("");
+    loadProjectMembers(p.id);
+  };
+
+  const addMember = async () => {
+    if (!selectedProject || !selectedUserId) return;
+    setMemberLoading(true);
+    try {
+      await addProjectMember(selectedProject.id, selectedUserId as number);
+      toast.success("Member added");
+      loadProjectMembers(selectedProject.id);
+      getProjects(1, 10).then(d => setProjects(d.projects ?? [])).catch(() => {});
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to add member");
+    } finally {
+      setMemberLoading(false);
+    }
+  };
+
+  const removeMember = async (userId: number) => {
+    if (!selectedProject) return;
+    setMemberLoading(true);
+    try {
+      await removeProjectMember(selectedProject.id, userId);
+      toast.success("Member removed");
+      loadProjectMembers(selectedProject.id);
+      getProjects(1, 10).then(d => setProjects(d.projects ?? [])).catch(() => {});
+    } catch {
+      toast.error("Failed to remove member");
+    } finally {
+      setMemberLoading(false);
+    }
+  };
+
+  const onSubmit = async (data: ProjectFormData) => {
+    setSaving(true);
+    try {
+      if (editProject) {
+        await updateProject(editProject.id, data);
+        toast.success("Project updated");
+        getProjects(1, 10).then(d => setProjects(d.projects ?? [])).catch(() => {});
+      }
+      setModalOpen(false);
+    } catch (error: any) { 
+      toast.error(error.response?.data?.message || "Failed to save"); 
+    } finally { 
+      setSaving(false); 
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteProject(deleteTarget.id);
+      removeProjectFromWorkspace(deleteTarget.id);
+      toast.success("Project deleted");
+      setDeleteTarget(null);
+      getProjects(1, 10).then(d => setProjects(d.projects ?? [])).catch(() => {});
+    } catch { 
+      toast.error("Failed to delete"); 
+    } finally { 
+      setDeleting(false); 
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -205,11 +367,20 @@ export default function DashboardPage() {
     ]).finally(() => setLoading(false));
   }, [user?.id]);
 
+  useEffect(() => {
+    if (canManageMembers) {
+      getUsers(1, 100)
+        .then((data) => setAvailableUsers(data.users ?? []))
+        .catch(() => toast.error("Failed to load users"));
+    }
+  }, [canManageMembers]);
 
-  // filter to workspace projects only
-  const wsProjects = currentProjectIds.length > 0
-    ? projects.filter(p => currentProjectIds.includes(p.id))
-    : [];
+
+  // filter to workspace projects only or unassigned projects
+  const allAssignedIds = Object.values(wsProjectsMap).flat();
+  const wsProjects = projects.filter(p => 
+    currentProjectIds.includes(p.id) || !allAssignedIds.includes(p.id)
+  );
   const wsCompleted = wsProjects.filter(p => p.status === "COMPLETED").length;
 
   return (
@@ -288,7 +459,7 @@ export default function DashboardPage() {
                 </Link>
               </div>
             ) : (
-              wsProjects.slice(0, 5).map(p => <ProjectCard key={p.id} project={p} T={T} />)
+              wsProjects.slice(0, 5).map(p => <ProjectCard key={p.id} project={p} T={T} canEdit={canEditProject} canDelete={canDeleteProject} canManageMembers={canManageMembers} onEdit={openEdit} onDelete={setDeleteTarget} onMembers={openMembers} />)
             )}
           </div>
 
@@ -375,6 +546,110 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Members Modal */}
+      {membersModalOpen && selectedProject && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 0, background: T.modalOverlay || "rgba(0,0,0,0.7)" }} onClick={() => setMembersModalOpen(false)} />
+          <div style={{ position: "relative", background: T.white, border: `1px solid ${T.border}`, borderRadius: 6, width: "100%", maxWidth: 540, padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.5)", maxHeight: "90vh", overflowY: "auto" }}>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: T.textPrimary, margin: "0 0 16px" }}>Project Members</h3>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 4 }}>Project</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary }}>{selectedProject.name}</div>
+            </div>
+
+            {canManageMembers && (
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 18 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelSty}>Add member</label>
+                  <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value ? Number(e.target.value) : "")} style={{ ...inputSty, width: "100%" }}>
+                    <option value="">Select user</option>
+                    {availableUsers.map((u) => (
+                      <option key={u.id} value={u.id}>{u.firstName} {u.lastName} ({u.role.name})</option>
+                    ))}
+                  </select>
+                </div>
+                <button onClick={addMember} disabled={!selectedUserId || memberLoading} style={{ padding: "10px 16px", borderRadius: 4, border: "none", background: T.accent, color: "#fff", fontWeight: 600, cursor: selectedUserId && !memberLoading ? "pointer" : "not-allowed" }}>
+                  {memberLoading ? "Adding..." : "Add"}
+                </button>
+              </div>
+            )}
+
+            <div>
+              <div style={{ fontSize: 12, color: T.textSecondary, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Current Members</div>
+              <div style={{ display: "grid", gap: 12 }}>
+                {memberLoading ? (
+                  <div style={{ color: T.textSecondary }}>Loading members…</div>
+                ) : projectMembers.length === 0 ? (
+                  <div style={{ color: T.textSecondary }}>No members assigned.</div>
+                ) : (
+                  projectMembers.map((member) => (
+                    <div key={member.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: T.bg, borderRadius: 8, border: `1px solid ${T.border}` }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: T.textPrimary }}>{member.firstName} {member.lastName}</div>
+                        <div style={{ fontSize: 12, color: T.textSecondary }}>{member.email}</div>
+                      </div>
+                      {canRemoveMembers && (
+                        <button onClick={() => removeMember(member.id)} disabled={memberLoading} style={{ padding: "8px 12px", borderRadius: 6, border: "none", background: T.red, color: "#fff", cursor: memberLoading ? "not-allowed" : "pointer" }}>
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <button onClick={() => setMembersModalOpen(false)} style={{ marginTop: 20, padding: "10px 16px", borderRadius: 6, border: `1px solid ${T.border}`, background: "transparent", color: T.textSecondary }}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Edit Project">
+        <form onSubmit={handleSubmit(onSubmit)} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={labelSty}>Project Name</label>
+            <input style={inputSty} placeholder="e.g. Website Redesign" {...register("name")}
+              onFocus={e => (e.target.style.borderColor = T.accent)} onBlur={e => (e.target.style.borderColor = "#2C333A")} />
+            {errors.name && <p style={{ fontSize: 12, color: "#FF5630", marginTop: 4 }}>{errors.name.message}</p>}
+          </div>
+          <div>
+            <label style={labelSty}>Description</label>
+            <textarea style={{ ...inputSty, height: 80, resize: "none", paddingTop: 10 }} placeholder="Optional..." {...register("description")}
+              onFocus={e => (e.target.style.borderColor = T.accent)} onBlur={e => (e.target.style.borderColor = "#2C333A")} />
+          </div>
+          <div>
+            <label style={labelSty}>Status</label>
+            <select style={{ ...inputSty }} {...register("status")}
+              onFocus={e => (e.target.style.borderColor = T.accent)} onBlur={e => (e.target.style.borderColor = "#2C333A")}>
+              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+            <button type="button" onClick={() => setModalOpen(false)} style={{ padding: "8px 16px", borderRadius: 3, border: "1px solid #2C333A", background: "transparent", color: "#8A94A5", cursor: "pointer", fontFamily: "inherit", fontSize: 14 }}>Cancel</button>
+            <button type="submit" disabled={saving} style={{ padding: "8px 16px", borderRadius: 3, border: "none", background: saving ? "#42526E" : T.accent, color: "#fff", cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 600 }}>
+              {saving ? "Saving..." : "Update"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Confirm */}
+      {deleteTarget && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)" }} onClick={() => setDeleteTarget(null)} />
+          <div style={{ position: "relative", background: "#22272B", border: "1px solid #2C333A", borderRadius: 6, width: 400, padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+            <h3 style={{ fontSize: 15, fontWeight: 600, color: "#DFE1E6", margin: "0 0 8px" }}>Delete project?</h3>
+            <p style={{ fontSize: 13, color: "#8A94A5", margin: "0 0 20px" }}>Delete &quot;{deleteTarget.name}&quot;? This cannot be undone.</p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button onClick={() => setDeleteTarget(null)} style={{ padding: "8px 16px", borderRadius: 3, border: "1px solid #2C333A", background: "transparent", color: "#8A94A5", cursor: "pointer", fontSize: 14 }}>Cancel</button>
+              <button onClick={handleDelete} disabled={deleting} style={{ padding: "8px 16px", borderRadius: 3, border: "none", background: deleting ? "#42526E" : "#DE350B", color: "#fff", cursor: deleting ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600 }}>
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }

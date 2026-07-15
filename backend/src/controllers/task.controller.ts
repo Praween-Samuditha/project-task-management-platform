@@ -9,15 +9,9 @@ export const createTask = async (req: AuthRequest, res: Response) => {
     const userId = req.user.id;
     const role = req.user.role;
 
-    // MANAGER can only create tasks in projects they own or are a member of
-    if (role === "MANAGER") {
-      const project = await taskService.getProjectForTask(validatedData.projectId, userId);
-      if (!project) {
-        return res.status(403).json({ message: "You can only create tasks in your own projects" });
-      }
-    }
+    // Managers and Admins have global access to create tasks.
 
-    const task = await taskService.createTask({ ...validatedData, createdById: userId });
+    const task = await taskService.createTask({ ...validatedData, createdById: userId, userRole: role });
     return res.status(201).json(task);
   } catch (error: any) {
     if (error.errors) return res.status(400).json({ errors: error.errors });
@@ -34,7 +28,7 @@ export const getAllTasks = async (req: AuthRequest, res: Response) => {
     const status = req.query.status as string | undefined;
     const priority = req.query.priority as string | undefined;
 
-    const accessUserId = req.user.role === "ADMIN" ? undefined : req.user.id;
+    const accessUserId = ["ADMIN", "MANAGER"].includes(req.user.role) ? undefined : req.user.id;
     const result = await taskService.getAllTasks({ page, limit, projectId, assigneeId, status, priority, accessUserId });
     return res.json(result);
   } catch (error: any) {
@@ -63,24 +57,12 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
     const currentTask = await taskService.getTaskById(id);
     if (!currentTask) return res.status(404).json({ message: "Task not found" });
 
-    if (role === "MANAGER") {
-      const project = await taskService.getProjectForTask(currentTask.projectId, userId);
-      if (!project) {
-        return res.status(403).json({ message: "You can only update tasks in your own projects" });
-      }
-
-      if (validatedData.projectId) {
-        const targetProject = await taskService.getProjectForTask(validatedData.projectId, userId);
-        if (!targetProject) {
-          return res.status(403).json({ message: "You can only move tasks to your own projects" });
-        }
-      }
-    }
+    // Managers and Admins have global access to update tasks.
 
     if (role === "MEMBER") {
       const project = await taskService.getProjectForTask(currentTask.projectId, userId);
-      if (!project) {
-        return res.status(403).json({ message: "You can only update tasks in projects you belong to" });
+      if (!project && currentTask.assigneeId !== userId) {
+        return res.status(403).json({ message: "You can only update tasks assigned to you or in projects you belong to" });
       }
 
       delete (validatedData as any).title;
@@ -91,7 +73,7 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       delete (validatedData as any).projectId;
     }
 
-    const task = await taskService.updateTask(id, validatedData);
+    const task = await taskService.updateTask(id, { ...validatedData, updatedById: userId, userRole: role });
     return res.json(task);
   } catch (error: any) {
     if (error.errors) return res.status(400).json({ errors: error.errors });
@@ -108,12 +90,7 @@ export const deleteTask = async (req: AuthRequest, res: Response) => {
     const currentTask = await taskService.getTaskById(id);
     if (!currentTask) return res.status(404).json({ message: "Task not found" });
 
-    if (role === "MANAGER") {
-      const project = await taskService.getProjectForTask(currentTask.projectId, userId);
-      if (!project) {
-        return res.status(403).json({ message: "You can only delete tasks in your own projects" });
-      }
-    }
+    // Managers and Admins have global access to delete tasks.
 
     await taskService.deleteTask(id);
     return res.json({ message: "Task deleted successfully" });

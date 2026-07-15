@@ -6,6 +6,7 @@ import projectRoutes from "./routes/project.routes";
 import projectMemberRoutes from "./routes/projectMember.routes";
 import taskRoutes from "./routes/task.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
+import notificationRoutes from "./routes/notification.routes";
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/projects", projectMemberRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.get("/", (req, res) => {
     res.json({

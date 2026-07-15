@@ -21,6 +21,7 @@ interface WorkspaceContextValue {
   currentProjectIds: number[];
   addProjectToWorkspace: (projectId: number) => void;
   removeProjectFromWorkspace: (projectId: number) => void;
+  wsProjectsMap: Record<string, number[]>;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue>({
@@ -29,6 +30,7 @@ const WorkspaceContext = createContext<WorkspaceContextValue>({
   editWorkspace: () => {}, deleteWorkspace: () => {},
   currentProjectIds: [],
   addProjectToWorkspace: () => {}, removeProjectFromWorkspace: () => {},
+  wsProjectsMap: {},
 });
 
 const WS_KEY = "fp_workspaces";
@@ -131,6 +133,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       workspaces, current, switchWorkspace, createWorkspace,
       editWorkspace, deleteWorkspace,
       currentProjectIds, addProjectToWorkspace, removeProjectFromWorkspace,
+      wsProjectsMap: wsProjects,
     }}>
       {children}
     </WorkspaceContext.Provider>
