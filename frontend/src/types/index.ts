@@ -96,3 +96,20 @@ export interface DecodedToken {
   iat: number;
   exp: number;
 }
+
+export interface Notification {
+  id: number;
+  userId: number;
+  taskId?: number;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface NotificationsResponse {
+  notifications: Notification[];
+  unreadCount: number;
+}
+
